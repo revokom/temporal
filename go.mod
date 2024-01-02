@@ -43,7 +43,7 @@ require (
 	go.opentelemetry.io/otel/metric v1.19.0
 	go.opentelemetry.io/otel/sdk v1.19.0
 	go.opentelemetry.io/otel/sdk/metric v1.19.0
-	go.temporal.io/api v1.26.1-0.20231226222528-f248656b41b1
+	go.temporal.io/api v1.26.1-0.20240103195340-f53b4fb61ef4
 	go.temporal.io/sdk v1.25.2-0.20231226222701-023381fc2698
 	go.temporal.io/version v0.3.0
 	go.uber.org/atomic v1.11.0

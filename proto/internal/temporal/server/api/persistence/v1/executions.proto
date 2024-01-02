@@ -161,6 +161,8 @@ message WorkflowExecutionInfo {
 
     // index of update IDs and pointers to associated history events.
     map<string, temporal.server.api.update.v1.UpdateInfo> update_infos = 79;
+    // Attached callbacks and their states.
+    repeated temporal.api.workflow.v1.CallbackInfo callbacks = 80;
 }
 
 message ExecutionStats {
