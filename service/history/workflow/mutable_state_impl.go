@@ -1842,6 +1842,17 @@ func (ms *MutableStateImpl) ApplyWorkflowExecutionStartedEvent(
 	ms.executionInfo.WorkflowExecutionTimeout = event.GetWorkflowExecutionTimeout()
 	ms.executionInfo.DefaultWorkflowTaskTimeout = event.GetWorkflowTaskTimeout()
 
+	ms.executionInfo.Callbacks = make([]*workflowpb.CallbackInfo, len(event.GetCallbacks()))
+	for i, cb := range event.GetCallbacks() {
+		ms.executionInfo.Callbacks[i] = &workflowpb.CallbackInfo{
+			Trigger: &workflowpb.CallbackInfo_Trigger{
+				Variant: &workflowpb.CallbackInfo_Trigger_WorkflowClosed{},
+			},
+			Callback:         cb,
+			State:            enumspb.CALLBACK_STATE_STANDBY,
+			RegistrationTime: startEvent.EventTime,
+		}
+	}
 	if err := ms.UpdateWorkflowStateStatus(
 		enumsspb.WORKFLOW_EXECUTION_STATE_CREATED,
 		enumspb.WORKFLOW_EXECUTION_STATUS_RUNNING,
