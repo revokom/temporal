@@ -736,6 +736,9 @@ const (
 	// ArchivalBackendMaxRPS is the maximum rate of requests per second to the archival backend
 	ArchivalBackendMaxRPS = "history.archivalBackendMaxRPS"
 
+	// CallbackTaskTimeout is the timeout for executing a single callback task.
+	CallbackTaskTimeout = "history.callbackTaskTimeout"
+
 	// WorkflowExecutionMaxInFlightUpdates is the max number of updates that can be in-flight (admitted but not yet completed) for any given workflow execution.
 	WorkflowExecutionMaxInFlightUpdates = "history.maxInFlightUpdates"
 	// WorkflowExecutionMaxTotalUpdates is the max number of updates that any given workflow execution can receive.

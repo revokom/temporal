@@ -322,6 +322,8 @@ type Config struct {
 
 	// FrontendAccessHistoryFraction is an interim flag across 2 minor releases and will be removed once fully enabled.
 	FrontendAccessHistoryFraction dynamicconfig.FloatPropertyFn
+
+	CallbackTaskTimeout dynamicconfig.DurationPropertyFn
 }
 
 const (
@@ -585,6 +587,8 @@ func NewConfig(
 		SendRawWorkflowHistory: dc.GetBoolPropertyFnWithNamespaceFilter(dynamicconfig.SendRawWorkflowHistory, false),
 
 		FrontendAccessHistoryFraction: dc.GetFloat64Property(dynamicconfig.FrontendAccessHistoryFraction, 0.0),
+
+		CallbackTaskTimeout: dc.GetDurationProperty(dynamicconfig.CallbackTaskTimeout, time.Second*10),
 	}
 
 	return cfg
