@@ -680,6 +680,37 @@ const (
 	// TransferProcessorEnsureCloseBeforeDelete means we ensure the execution is closed before we delete it
 	TransferProcessorEnsureCloseBeforeDelete = "history.transferProcessorEnsureCloseBeforeDelete"
 
+	// CallbackTaskBatchSize is batch size for callbackQueueFactory
+	CallbackTaskBatchSize = "history.callbackTaskBatchSize"
+	// CallbackProcessorFailoverMaxPollRPS is max poll rate per second for callbackQueueFactory
+	CallbackProcessorFailoverMaxPollRPS = "history.callbackProcessorFailoverMaxPollRPS"
+	// CallbackProcessorMaxPollRPS is max poll rate per second for callbackQueueFactory
+	CallbackProcessorMaxPollRPS = "history.callbackProcessorMaxPollRPS"
+	// CallbackProcessorMaxPollHostRPS is max poll rate per second for all callbackQueueFactory on a host
+	CallbackProcessorMaxPollHostRPS = "history.callbackProcessorMaxPollHostRPS"
+	// CallbackProcessorSchedulerWorkerCount is the number of workers in the host level task scheduler for callbackQueueFactory
+	CallbackProcessorSchedulerWorkerCount = "history.callbackProcessorSchedulerWorkerCount"
+	// CallbackProcessorSchedulerActiveRoundRobinWeights is the priority round robin weights used by callback task scheduler for active namespaces
+	CallbackProcessorSchedulerActiveRoundRobinWeights = "history.callbackProcessorSchedulerActiveRoundRobinWeights"
+	// CallbackProcessorSchedulerStandbyRoundRobinWeights is the priority round robin weights used by callback task scheduler for standby namespaces
+	CallbackProcessorSchedulerStandbyRoundRobinWeights = "history.callbackProcessorSchedulerStandbyRoundRobinWeights"
+	// CallbackProcessorUpdateShardTaskCount is update shard count for callbackQueueFactory
+	CallbackProcessorUpdateShardTaskCount = "history.callbackProcessorUpdateShardTaskCount"
+	// CallbackProcessorMaxPollInterval max poll interval for callbackQueueFactory
+	CallbackProcessorMaxPollInterval = "history.callbackProcessorMaxPollInterval"
+	// CallbackProcessorMaxPollIntervalJitterCoefficient is the max poll interval jitter coefficient
+	CallbackProcessorMaxPollIntervalJitterCoefficient = "history.callbackProcessorMaxPollIntervalJitterCoefficient"
+	// CallbackProcessorUpdateAckInterval is update interval for callbackQueueFactory
+	CallbackProcessorUpdateAckInterval = "history.callbackProcessorUpdateAckInterval"
+	// CallbackProcessorUpdateAckIntervalJitterCoefficient is the update interval jitter coefficient
+	CallbackProcessorUpdateAckIntervalJitterCoefficient = "history.callbackProcessorUpdateAckIntervalJitterCoefficient"
+	// CallbackProcessorCompleteCallbackInterval is complete timer interval for callbackQueueFactory
+	CallbackProcessorCompleteCallbackInterval = "history.callbackProcessorCompleteCallbackInterval"
+	// CallbackProcessorPollBackoffInterval is the poll backoff interval if task redispatcher's size exceeds limit for callbackQueueFactory
+	CallbackProcessorPollBackoffInterval = "history.callbackProcessorPollBackoffInterval"
+	// CallbackProcessorEnsureCloseBeforeDelete means we ensure the execution is closed before we delete it
+	CallbackProcessorEnsureCloseBeforeDelete = "history.callbackProcessorEnsureCloseBeforeDelete"
+
 	// VisibilityTaskBatchSize is batch size for visibilityQueueProcessor
 	VisibilityTaskBatchSize = "history.visibilityTaskBatchSize"
 	// VisibilityProcessorMaxPollRPS is max poll rate per second for visibilityQueueProcessor

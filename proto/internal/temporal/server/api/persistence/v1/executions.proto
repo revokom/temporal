@@ -161,8 +161,8 @@ message WorkflowExecutionInfo {
 
     // index of update IDs and pointers to associated history events.
     map<string, temporal.server.api.update.v1.UpdateInfo> update_infos = 79;
-    // Attached callbacks and their states.
-    repeated temporal.api.workflow.v1.CallbackInfo callbacks = 80;
+    // UUID to attached callback and its state.
+    map<string, CallbackInfo> callbacks = 80;
 }
 
 message ExecutionStats {
@@ -270,6 +270,20 @@ message ArchivalTaskInfo {
     google.protobuf.Timestamp visibility_time = 7;
 }
 
+// serialized callback task
+message CallbackTaskInfo {
+    string namespace_id = 1;
+    string workflow_id = 2;
+    string run_id = 3;
+    temporal.server.api.enums.v1.TaskType task_type = 4;
+    int64 version = 5;
+    int64 task_id = 6;
+    google.protobuf.Timestamp visibility_time = 7;
+    string callback_id = 8;
+    string destination_address = 9;
+    int64 attempt = 10;
+}
+
 // activity_map column
 message ActivityInfo {
     int64 version = 1;
@@ -369,3 +383,8 @@ message Checksum {
     bytes value = 3;
 }
 
+message CallbackInfo {
+    // The namespace failover version at the time this callback info was updated.
+    int64 version = 1; 
+    temporal.api.workflow.v1.CallbackInfo inner = 2;
+}
