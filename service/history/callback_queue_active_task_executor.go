@@ -23,7 +23,6 @@
 package history
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"net/http"
@@ -186,21 +185,10 @@ func (t *callbackQueueActiveTaskExecutor) getNexusCompletion(ctx context.Context
 	switch ce.GetEventType() {
 	case enumspb.EVENT_TYPE_WORKFLOW_EXECUTION_COMPLETED:
 		payloads := ce.GetWorkflowExecutionCompletedEventAttributes().GetResult().GetPayloads()
-		content, err := t.payloadSerializer.Serialize(payloads[0])
-		if err != nil {
-			// TODO: think about the error returned here
-			return nil, err
-		}
-
-		// TODO: this should be made easier in the Nexus SDK
-		completion := &nexus.OperationCompletionSuccessful{
-			Header: make(http.Header, len(content.Header)),
-			Body:   bytes.NewReader(content.Data),
-		}
-		for k, v := range content.Header {
-			completion.Header.Set("Content-"+k, v)
-		}
-		return completion, nil
+		// TODO: think about the error returned here
+		return nexus.NewOperationCompletionSuccessful(payloads[0], nexus.OperationCompletionSuccesfulOptions{
+			Serializer: t.payloadSerializer,
+		})
 	}
 	// TODO: handle other completion states
 	return nil, fmt.Errorf("invalid workflow execution status: %v", ce.GetEventType())

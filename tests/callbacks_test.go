@@ -26,9 +26,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/nexus-rpc/sdk-go/nexus"
@@ -40,17 +38,18 @@ import (
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/worker"
 	"go.temporal.io/sdk/workflow"
-	commonnexus "go.temporal.io/server/common/nexus"
 	"go.temporal.io/server/internal/temporalite"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
 
 type completionHandler struct {
-	requestCh chan *nexus.CompletionRequest
+	requestCh         chan *nexus.CompletionRequest
+	requestCompleteCh chan struct{}
 }
 
 func (h *completionHandler) CompleteOperation(ctx context.Context, request *nexus.CompletionRequest) error {
 	h.requestCh <- request
+	<-h.requestCompleteCh
 	return nil
 }
 
@@ -88,7 +87,10 @@ func (s *FunctionalSuite) TestWorkflowCallbacks() {
 	wf := func(workflow.Context) (int, error) {
 		return 666, nil
 	}
-	ch := &completionHandler{requestCh: make(chan *nexus.CompletionRequest, 1)}
+	ch := &completionHandler{
+		requestCh:         make(chan *nexus.CompletionRequest, 1),
+		requestCompleteCh: make(chan struct{}, 1),
+	}
 	callbackAddress := fmt.Sprintf("localhost:%d", pp.MustGetFreePort())
 	s.NoError(pp.Close())
 	s.runNexusCompletionHTTPServer(ch, callbackAddress)
@@ -124,18 +126,9 @@ func (s *FunctionalSuite) TestWorkflowCallbacks() {
 	s.NoError(run.Get(ctx, nil))
 
 	completion := <-ch.requestCh
-	// TODO: this should be made easier in the Nexus SDK
-	header := nexus.Header{}
-	for k, v := range completion.HTTPRequest.Header {
-		if strings.HasPrefix(k, "Content-") {
-			header[strings.TrimPrefix(k, "Content-")] = v[0]
-		}
-	}
-	reader := nexus.Reader{ReadCloser: completion.HTTPRequest.Body, Header: header}
-	defer reader.ReadCloser.Close()
-	bytes, err := io.ReadAll(reader)
-	s.NoError(err)
+	s.Equal(nexus.OperationStateSucceeded, completion.State)
 	var result int
-	s.NoError(commonnexus.PayloadSerializer{}.Deserialize(&nexus.Content{Header: header, Data: bytes}, &result))
+	s.NoError(completion.Result.Consume(&result))
 	s.Equal(666, result)
+	ch.requestCompleteCh <- struct{}{}
 }
