@@ -1843,8 +1843,8 @@ func (ms *MutableStateImpl) ApplyWorkflowExecutionStartedEvent(
 	ms.executionInfo.WorkflowExecutionTimeout = event.GetWorkflowExecutionTimeout()
 	ms.executionInfo.DefaultWorkflowTaskTimeout = event.GetWorkflowTaskTimeout()
 
-	ms.executionInfo.Callbacks = make(map[string]*persistencespb.CallbackInfo, len(event.GetCallbacks()))
-	for _, cb := range event.GetCallbacks() {
+	ms.executionInfo.Callbacks = make(map[string]*persistencespb.CallbackInfo, len(event.GetCompletionCallbacks()))
+	for _, cb := range event.GetCompletionCallbacks() {
 		callbackID := uuid.New()
 		ms.executionInfo.Callbacks[callbackID] = &persistencespb.CallbackInfo{
 			Version: ms.currentVersion,

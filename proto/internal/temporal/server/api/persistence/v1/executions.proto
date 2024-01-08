@@ -257,6 +257,8 @@ message TimerTaskInfo {
     bytes branch_token = 12;
     // If this is true, we can bypass archival before deleting. Only defined for DeleteHistoryEventTasks.
     bool already_archived = 13;
+    // If task_type is CALLBACK_BACKOFF, this field contains the callback ID.
+    string callback_id = 14;
 }
 
 
@@ -281,7 +283,7 @@ message CallbackTaskInfo {
     google.protobuf.Timestamp visibility_time = 7;
     string callback_id = 8;
     string destination_address = 9;
-    int64 attempt = 10;
+    int32 attempt = 10;
 }
 
 // activity_map column

@@ -29,17 +29,15 @@ import (
 	"go.temporal.io/server/common/definition"
 )
 
-var _ Task = (*CallbackTask)(nil)
+var _ Task = (*CallbackBackoffTask)(nil)
 
 type (
-	CallbackTask struct {
+	CallbackBackoffTask struct {
 		definition.WorkflowKey
 		VisibilityTimestamp time.Time
 		TaskID              int64
+		EventID             int64
 		Version             int64
-		// This destination address for the callback.
-		// Used to associate the callback with an executor.
-		DestinationAddress string
 		// Index in mutable state's callback map.
 		CallbackID string
 		// The attempt - should match the mutable state callback info.
@@ -47,38 +45,38 @@ type (
 	}
 )
 
-func (a *CallbackTask) GetKey() Key {
-	return NewImmediateKey(a.TaskID)
+func (t *CallbackBackoffTask) GetKey() Key {
+	return NewKey(t.VisibilityTimestamp, t.TaskID)
 }
 
-func (a *CallbackTask) GetVersion() int64 {
-	return a.Version
+func (t *CallbackBackoffTask) GetVersion() int64 {
+	return t.Version
 }
 
-func (a *CallbackTask) SetVersion(version int64) {
-	a.Version = version
+func (t *CallbackBackoffTask) SetVersion(version int64) {
+	t.Version = version
 }
 
-func (a *CallbackTask) GetTaskID() int64 {
-	return a.TaskID
+func (t *CallbackBackoffTask) GetTaskID() int64 {
+	return t.TaskID
 }
 
-func (a *CallbackTask) SetTaskID(id int64) {
-	a.TaskID = id
+func (t *CallbackBackoffTask) SetTaskID(id int64) {
+	t.TaskID = id
 }
 
-func (a *CallbackTask) GetVisibilityTime() time.Time {
-	return a.VisibilityTimestamp
+func (t *CallbackBackoffTask) GetVisibilityTime() time.Time {
+	return t.VisibilityTimestamp
 }
 
-func (a *CallbackTask) SetVisibilityTime(timestamp time.Time) {
-	a.VisibilityTimestamp = timestamp
+func (t *CallbackBackoffTask) SetVisibilityTime(vt time.Time) {
+	t.VisibilityTimestamp = vt
 }
 
-func (a *CallbackTask) GetCategory() Category {
-	return CategoryCallback
+func (t *CallbackBackoffTask) GetCategory() Category {
+	return CategoryTimer
 }
 
-func (a *CallbackTask) GetType() enumsspb.TaskType {
-	return enumsspb.TASK_TYPE_CALLBACK
+func (t *CallbackBackoffTask) GetType() enumsspb.TaskType {
+	return enumsspb.TASK_TYPE_CALLBACK_BACKOFF
 }

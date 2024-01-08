@@ -171,6 +171,8 @@ func (s *TaskSerializer) serializeTimerTask(
 		timerTask = s.timerWorkflowRunToProto(task)
 	case *tasks.DeleteHistoryEventTask:
 		timerTask = s.timerWorkflowCleanupTaskToProto(task)
+	case *tasks.CallbackBackoffTask:
+		timerTask = s.callbackBackoffTaskToProto(task)
 	default:
 		return nil, serviceerror.NewInternal(fmt.Sprintf("Unknown timer task type: %v", task))
 	}
@@ -202,6 +204,8 @@ func (s *TaskSerializer) deserializeTimerTasks(
 		timer = s.timerWorkflowRunFromProto(timerTask)
 	case enumsspb.TASK_TYPE_DELETE_HISTORY_EVENT:
 		timer = s.timerWorkflowCleanupTaskFromProto(timerTask)
+	case enumsspb.TASK_TYPE_CALLBACK_BACKOFF:
+		timer = s.callbackBackoffTaskFromProto(timerTask)
 	default:
 		return nil, serviceerror.NewInternal(fmt.Sprintf("Unknown timer task type: %v", timerTask.TaskType))
 	}
@@ -1194,5 +1198,34 @@ func (s *TaskSerializer) callbackTaskFromProto(task *persistencespb.CallbackTask
 		CallbackID:          task.CallbackId,
 		DestinationAddress:  task.DestinationAddress,
 		Attempt:             task.Attempt,
+	}
+}
+
+func (s *TaskSerializer) callbackBackoffTaskToProto(task *tasks.CallbackBackoffTask) *persistencespb.TimerTaskInfo {
+	return &persistencespb.TimerTaskInfo{
+		NamespaceId:     task.WorkflowKey.NamespaceID,
+		WorkflowId:      task.WorkflowKey.WorkflowID,
+		RunId:           task.WorkflowKey.RunID,
+		TaskType:        enumsspb.TASK_TYPE_CALLBACK_BACKOFF,
+		Version:         task.Version,
+		TaskId:          task.TaskID,
+		VisibilityTime:  timestamppb.New(task.VisibilityTimestamp),
+		CallbackId:      task.CallbackID,
+		ScheduleAttempt: task.Attempt,
+	}
+}
+
+func (s *TaskSerializer) callbackBackoffTaskFromProto(task *persistencespb.TimerTaskInfo) *tasks.CallbackBackoffTask {
+	return &tasks.CallbackBackoffTask{
+		WorkflowKey: definition.NewWorkflowKey(
+			task.NamespaceId,
+			task.WorkflowId,
+			task.RunId,
+		),
+		VisibilityTimestamp: task.GetVisibilityTime().AsTime(),
+		Version:             task.Version,
+		TaskID:              task.TaskId,
+		CallbackID:          task.CallbackId,
+		Attempt:             task.ScheduleAttempt,
 	}
 }

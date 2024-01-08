@@ -26,6 +26,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/nexus-rpc/sdk-go/nexus"
 	commonpb "go.temporal.io/api/common/v1"
@@ -34,8 +35,10 @@ import (
 	historypb "go.temporal.io/api/history/v1"
 	workflowpb "go.temporal.io/api/workflow/v1"
 	"go.temporal.io/server/api/persistence/v1"
+	"go.temporal.io/server/common/backoff"
 	"go.temporal.io/server/common/log"
 	"go.temporal.io/server/common/metrics"
+	"go.temporal.io/server/common/namespace"
 	commonnexus "go.temporal.io/server/common/nexus"
 	"go.temporal.io/server/service/history/configs"
 	"go.temporal.io/server/service/history/consts"
@@ -163,6 +166,9 @@ func (t *callbackQueueActiveTaskExecutor) processCallbackTask(
 		// TODO: think about the error returned here
 		return fmt.Errorf("invalid callback state for task")
 	}
+	// if callback.Inner.Attempt != task.Attempt {
+	// 	return fmt.Errorf("invalid callback attempt for task")
+	// }
 
 	ce, err := mutableState.GetCompletionEvent(ctx)
 	// TODO: not sure which errors checks are appropriate
@@ -210,6 +216,7 @@ func (t *callbackQueueActiveTaskExecutor) processNexusCallbackTask(ctx context.C
 			callback.State = enumspb.CALLBACK_STATE_BACKING_OFF
 			callback.LastAttemptFailure = &failurepb.Failure{
 				Message: err.Error(),
+				// TODO: ServerFailureInfo or ApplicationFailureInfo?
 				FailureInfo: &failurepb.Failure_ServerFailureInfo{
 					ServerFailureInfo: &failurepb.ServerFailureInfo{},
 				},
@@ -223,15 +230,16 @@ func (t *callbackQueueActiveTaskExecutor) processNexusCallbackTask(ctx context.C
 		}
 		// TODO: get exact non retryable vs. retryable error codes
 		if response.StatusCode >= 400 && response.StatusCode < 500 {
-			callback.State = enumspb.CALLBACK_STATE_BACKING_OFF
+			callback.State = enumspb.CALLBACK_STATE_FAILED
 			// TODO: schedule a backoff timer
 		} else {
-			callback.State = enumspb.CALLBACK_STATE_FAILED
+			callback.State = enumspb.CALLBACK_STATE_BACKING_OFF
 		}
 
 		callback.LastAttemptFailure = &failurepb.Failure{
 			Message: response.Status,
 			FailureInfo: &failurepb.Failure_ServerFailureInfo{
+				// TODO: ServerFailureInfo or ApplicationFailureInfo?
 				ServerFailureInfo: &failurepb.ServerFailureInfo{
 					NonRetryable: callback.State == enumspb.CALLBACK_STATE_BACKING_OFF,
 				},
@@ -253,11 +261,26 @@ func (t *callbackQueueActiveTaskExecutor) updateCallbackState(
 
 	return t.updateWorkflowExecution(ctx, weContext, func(ms workflow.MutableState) error {
 		// TODO: This should probably move to mutable state
+		version := ms.GetExecutionInfo().GetCallbacks()[task.CallbackID].Version
 		callback := ms.GetExecutionInfo().GetCallbacks()[task.CallbackID].Inner
 		callback.Attempt++
 		callback.LastAttemptCompleteTime = timestamppb.New(t.shard.GetCurrentTime(t.clusterName))
+		beforeUpdateState := callback.State
 		updateCallbackFn(callback)
+		afterUpdateState := callback.State
+		t.shard.GetNamespaceRegistry().GetNamespaceByID(namespace.ID(task.GetNamespaceID()))
 		// TODO: update version callback version
+		if beforeUpdateState != afterUpdateState && afterUpdateState == enumspb.CALLBACK_STATE_BACKING_OFF {
+			ms.AddTasks(&tasks.CallbackBackoffTask{
+				// TaskID and VisibilityTimestamp are set by shard
+				WorkflowKey: ms.GetWorkflowKey(),
+				Version:     version,
+				CallbackID:  task.CallbackID,
+				Attempt:     callback.Attempt,
+				// Use 0 for elapsed time as we don't limit the retry by time (for now).
+				VisibilityTimestamp: time.Now().Add(backoff.NewExponentialRetryPolicy(time.Second).ComputeNextDelay(0, int(callback.Attempt))),
+			})
+		}
 		// TODO: replication task
 		return nil
 	})

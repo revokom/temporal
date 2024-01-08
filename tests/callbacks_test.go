@@ -34,6 +34,7 @@ import (
 	commonpb "go.temporal.io/api/common/v1"
 	enumspb "go.temporal.io/api/enums/v1"
 	taskqueuepb "go.temporal.io/api/taskqueue/v1"
+	workflowpb "go.temporal.io/api/workflow/v1"
 	"go.temporal.io/api/workflowservice/v1"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/worker"
@@ -44,13 +45,12 @@ import (
 
 type completionHandler struct {
 	requestCh         chan *nexus.CompletionRequest
-	requestCompleteCh chan struct{}
+	requestCompleteCh chan error
 }
 
 func (h *completionHandler) CompleteOperation(ctx context.Context, request *nexus.CompletionRequest) error {
 	h.requestCh <- request
-	<-h.requestCompleteCh
-	return nil
+	return <-h.requestCompleteCh
 }
 
 func (s *FunctionalSuite) runNexusCompletionHTTPServer(h *completionHandler, listenAddr string) func() {
@@ -89,7 +89,7 @@ func (s *FunctionalSuite) TestWorkflowCallbacks() {
 	}
 	ch := &completionHandler{
 		requestCh:         make(chan *nexus.CompletionRequest, 1),
-		requestCompleteCh: make(chan struct{}, 1),
+		requestCompleteCh: make(chan error, 1),
 	}
 	callbackAddress := fmt.Sprintf("localhost:%d", pp.MustGetFreePort())
 	s.NoError(pp.Close())
@@ -108,7 +108,7 @@ func (s *FunctionalSuite) TestWorkflowCallbacks() {
 		Input:              nil,
 		WorkflowRunTimeout: durationpb.New(100 * time.Second),
 		Identity:           s.T().Name(),
-		Callbacks: []*commonpb.Callback{
+		CompletionCallbacks: []*commonpb.Callback{
 			{
 				Variant: &commonpb.Callback_Nexus_{
 					Nexus: &commonpb.Callback_Nexus{
@@ -125,10 +125,27 @@ func (s *FunctionalSuite) TestWorkflowCallbacks() {
 	run := sdkClient.GetWorkflow(ctx, request.WorkflowId, we.RunId)
 	s.NoError(run.Get(ctx, nil))
 
-	completion := <-ch.requestCh
-	s.Equal(nexus.OperationStateSucceeded, completion.State)
-	var result int
-	s.NoError(completion.Result.Consume(&result))
-	s.Equal(666, result)
-	ch.requestCompleteCh <- struct{}{}
+	numAttempts := 2
+	for attempt := 1; attempt <= numAttempts; attempt++ {
+		completion := <-ch.requestCh
+		s.Equal(nexus.OperationStateSucceeded, completion.State)
+		var result int
+		s.NoError(completion.Result.Consume(&result))
+		s.Equal(666, result)
+		var err error
+		if attempt < numAttempts {
+			// force retry
+			err = nexus.HandlerErrorf(nexus.HandlerErrorTypeInternal, "intentional error")
+		}
+		ch.requestCompleteCh <- err
+	}
+
+	description, err := sdkClient.DescribeWorkflowExecution(ctx, request.WorkflowId, we.RunId)
+	s.NoError(err)
+	s.Equal(1, len(description.Callbacks))
+	callbackInfo := description.Callbacks[0]
+	s.ProtoEqual(request.CompletionCallbacks[0], callbackInfo.Callback)
+	s.ProtoEqual(&workflowpb.CallbackInfo_Trigger{Variant: &workflowpb.CallbackInfo_Trigger_WorkflowClosed{WorkflowClosed: &workflowpb.CallbackInfo_WorkflowClosed{}}}, callbackInfo.Trigger)
+	s.Equal(int32(2), callbackInfo.Attempt)
+	s.Equal("500 Internal Server Error", callbackInfo.LastAttemptFailure.Message)
 }

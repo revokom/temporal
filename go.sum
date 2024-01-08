@@ -388,6 +388,8 @@ go.temporal.io/api v1.26.1-0.20240102220904-cd986818cee4 h1:Es7/9HhPLu1b59l2sE9a
 go.temporal.io/api v1.26.1-0.20240102220904-cd986818cee4/go.mod h1:d5Zx/HUcbL3/wmH89RNnjeV2BuOHeofAkilC4F2MuKA=
 go.temporal.io/api v1.26.1-0.20240103195340-f53b4fb61ef4 h1:+GKg0WwAweC5rMZdOlcz6olCrH+UhWvO8y6I31AC3i0=
 go.temporal.io/api v1.26.1-0.20240103195340-f53b4fb61ef4/go.mod h1:d5Zx/HUcbL3/wmH89RNnjeV2BuOHeofAkilC4F2MuKA=
+go.temporal.io/api v1.26.1-0.20240106224952-e65d246174b6 h1:HMgz/R0Zy60KD6/QS2zyWBFgUCSusXMimXUl9fIWcg4=
+go.temporal.io/api v1.26.1-0.20240106224952-e65d246174b6/go.mod h1:d5Zx/HUcbL3/wmH89RNnjeV2BuOHeofAkilC4F2MuKA=
 go.temporal.io/sdk v1.25.2-0.20231226222701-023381fc2698 h1:VXOQnabcHJ6ysyEom+KF+RZCeL9X9Xn5VcKDd/UlPY4=
 go.temporal.io/sdk v1.25.2-0.20231226222701-023381fc2698/go.mod h1:4v6FBlyzfCBnwpAYqHh9iZNetA/aLzEqgNmVB0FkJR4=
 go.temporal.io/version v0.3.0 h1:dMrei9l9NyHt8nG6EB8vAwDLLTwx2SvRyucCSumAiig=
