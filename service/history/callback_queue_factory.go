@@ -92,6 +92,10 @@ func (f *callbackQueueFactory) CreateQueue(
 	shardContext shard.Context,
 	workflowCache wcache.Cache,
 ) queues.Queue {
+	return f.createQueue(shardContext, workflowCache)
+}
+
+func (f *callbackQueueFactory) createQueue(shardContext shard.Context, workflowCache wcache.Cache) queues.Queue {
 	logger := log.With(shardContext.GetLogger(), tag.ComponentCallbackQueue)
 	metricsHandler := f.MetricsHandler.WithTags(metrics.OperationTag(metrics.OperationCallbackQueueProcessorScope))
 
