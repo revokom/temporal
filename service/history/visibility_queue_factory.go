@@ -142,32 +142,22 @@ func (f *visibilityQueueFactory) CreateQueue(
 		f.DLQWriter,
 		f.Config.TaskDLQEnabled,
 	)
-	return queues.NewImmediateQueue(
-		shard,
-		tasks.CategoryVisibility,
-		shardScheduler,
-		rescheduler,
-		&queues.Options{
-			ReaderOptions: queues.ReaderOptions{
-				BatchSize:            f.Config.VisibilityTaskBatchSize,
-				MaxPendingTasksCount: f.Config.QueuePendingTaskMaxCount,
-				PollBackoffInterval:  f.Config.VisibilityProcessorPollBackoffInterval,
-			},
-			MonitorOptions: queues.MonitorOptions{
-				PendingTasksCriticalCount:   f.Config.QueuePendingTaskCriticalCount,
-				ReaderStuckCriticalAttempts: f.Config.QueueReaderStuckCriticalAttempts,
-				SliceCountCriticalThreshold: f.Config.QueueCriticalSlicesCount,
-			},
-			MaxPollRPS:                          f.Config.VisibilityProcessorMaxPollRPS,
-			MaxPollInterval:                     f.Config.VisibilityProcessorMaxPollInterval,
-			MaxPollIntervalJitterCoefficient:    f.Config.VisibilityProcessorMaxPollIntervalJitterCoefficient,
-			CheckpointInterval:                  f.Config.VisibilityProcessorUpdateAckInterval,
-			CheckpointIntervalJitterCoefficient: f.Config.VisibilityProcessorUpdateAckIntervalJitterCoefficient,
-			MaxReaderCount:                      f.Config.QueueMaxReaderCount,
+	return queues.NewImmediateQueue(shard, tasks.CategoryVisibility, queues.NewDefaultPartitionKey(), shardScheduler, rescheduler, &queues.Options{
+		ReaderOptions: queues.ReaderOptions{
+			BatchSize:            f.Config.VisibilityTaskBatchSize,
+			MaxPendingTasksCount: f.Config.QueuePendingTaskMaxCount,
+			PollBackoffInterval:  f.Config.VisibilityProcessorPollBackoffInterval,
 		},
-		f.HostReaderRateLimiter,
-		logger,
-		metricsHandler,
-		factory,
-	)
+		MonitorOptions: queues.MonitorOptions{
+			PendingTasksCriticalCount:   f.Config.QueuePendingTaskCriticalCount,
+			ReaderStuckCriticalAttempts: f.Config.QueueReaderStuckCriticalAttempts,
+			SliceCountCriticalThreshold: f.Config.QueueCriticalSlicesCount,
+		},
+		MaxPollRPS:                          f.Config.VisibilityProcessorMaxPollRPS,
+		MaxPollInterval:                     f.Config.VisibilityProcessorMaxPollInterval,
+		MaxPollIntervalJitterCoefficient:    f.Config.VisibilityProcessorMaxPollIntervalJitterCoefficient,
+		CheckpointInterval:                  f.Config.VisibilityProcessorUpdateAckInterval,
+		CheckpointIntervalJitterCoefficient: f.Config.VisibilityProcessorUpdateAckIntervalJitterCoefficient,
+		MaxReaderCount:                      f.Config.QueueMaxReaderCount,
+	}, f.HostReaderRateLimiter, logger, metricsHandler, factory)
 }

@@ -190,32 +190,22 @@ func (f *transferQueueFactory) CreateQueue(
 		f.DLQWriter,
 		f.Config.TaskDLQEnabled,
 	)
-	return queues.NewImmediateQueue(
-		shard,
-		tasks.CategoryTransfer,
-		shardScheduler,
-		rescheduler,
-		&queues.Options{
-			ReaderOptions: queues.ReaderOptions{
-				BatchSize:            f.Config.TransferTaskBatchSize,
-				MaxPendingTasksCount: f.Config.QueuePendingTaskMaxCount,
-				PollBackoffInterval:  f.Config.TransferProcessorPollBackoffInterval,
-			},
-			MonitorOptions: queues.MonitorOptions{
-				PendingTasksCriticalCount:   f.Config.QueuePendingTaskCriticalCount,
-				ReaderStuckCriticalAttempts: f.Config.QueueReaderStuckCriticalAttempts,
-				SliceCountCriticalThreshold: f.Config.QueueCriticalSlicesCount,
-			},
-			MaxPollRPS:                          f.Config.TransferProcessorMaxPollRPS,
-			MaxPollInterval:                     f.Config.TransferProcessorMaxPollInterval,
-			MaxPollIntervalJitterCoefficient:    f.Config.TransferProcessorMaxPollIntervalJitterCoefficient,
-			CheckpointInterval:                  f.Config.TransferProcessorUpdateAckInterval,
-			CheckpointIntervalJitterCoefficient: f.Config.TransferProcessorUpdateAckIntervalJitterCoefficient,
-			MaxReaderCount:                      f.Config.QueueMaxReaderCount,
+	return queues.NewImmediateQueue(shard, tasks.CategoryTransfer, queues.NewDefaultPartitionKey(), shardScheduler, rescheduler, &queues.Options{
+		ReaderOptions: queues.ReaderOptions{
+			BatchSize:            f.Config.TransferTaskBatchSize,
+			MaxPendingTasksCount: f.Config.QueuePendingTaskMaxCount,
+			PollBackoffInterval:  f.Config.TransferProcessorPollBackoffInterval,
 		},
-		f.HostReaderRateLimiter,
-		logger,
-		metricsHandler,
-		factory,
-	)
+		MonitorOptions: queues.MonitorOptions{
+			PendingTasksCriticalCount:   f.Config.QueuePendingTaskCriticalCount,
+			ReaderStuckCriticalAttempts: f.Config.QueueReaderStuckCriticalAttempts,
+			SliceCountCriticalThreshold: f.Config.QueueCriticalSlicesCount,
+		},
+		MaxPollRPS:                          f.Config.TransferProcessorMaxPollRPS,
+		MaxPollInterval:                     f.Config.TransferProcessorMaxPollInterval,
+		MaxPollIntervalJitterCoefficient:    f.Config.TransferProcessorMaxPollIntervalJitterCoefficient,
+		CheckpointInterval:                  f.Config.TransferProcessorUpdateAckInterval,
+		CheckpointIntervalJitterCoefficient: f.Config.TransferProcessorUpdateAckIntervalJitterCoefficient,
+		MaxReaderCount:                      f.Config.QueueMaxReaderCount,
+	}, f.HostReaderRateLimiter, logger, metricsHandler, factory)
 }

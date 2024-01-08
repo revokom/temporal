@@ -149,6 +149,7 @@ func (f *callbackQueueFactory) CreateQueue(
 	return queues.NewImmediateQueue(
 		shardContext,
 		tasks.CategoryCallback,
+		queues.NewDefaultPartitionKey(),
 		scheduler,
 		rescheduler,
 		&queues.Options{

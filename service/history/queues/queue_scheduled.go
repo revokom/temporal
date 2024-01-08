@@ -125,19 +125,7 @@ func NewScheduledQueue(
 	}
 
 	return &scheduledQueue{
-		queueBase: newQueueBase(
-			shard,
-			category,
-			paginationFnProvider,
-			scheduler,
-			rescheduler,
-			executableFactory,
-			options,
-			hostRateLimiter,
-			readerCompletionFn,
-			logger,
-			metricsHandler,
-		),
+		queueBase: newQueueBase(shard, category, NewDefaultPartitionKey(), paginationFnProvider, scheduler, rescheduler, executableFactory, options, hostRateLimiter, readerCompletionFn, logger, metricsHandler),
 
 		timerGate:  timer.NewLocalGate(shard.GetTimeSource()),
 		newTimerCh: make(chan struct{}, 1),

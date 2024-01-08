@@ -697,17 +697,5 @@ func (s *queueBaseSuite) newQueueBase(
 			return false
 		},
 	)
-	return newQueueBase(
-		mockShard,
-		category,
-		paginationFnProvider,
-		s.mockScheduler,
-		s.mockRescheduler,
-		factory,
-		s.options,
-		s.rateLimiter,
-		NoopReaderCompletionFn,
-		s.logger,
-		s.metricsHandler,
-	)
+	return newQueueBase(mockShard, category, NewDefaultPartitionKey(), paginationFnProvider, s.mockScheduler, s.mockRescheduler, factory, s.options, s.rateLimiter, NoopReaderCompletionFn, s.logger, s.metricsHandler)
 }

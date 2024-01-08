@@ -50,17 +50,7 @@ type (
 	}
 )
 
-func NewImmediateQueue(
-	shard hshard.Context,
-	category tasks.Category,
-	scheduler Scheduler,
-	rescheduler Rescheduler,
-	options *Options,
-	hostRateLimiter quotas.RequestRateLimiter,
-	logger log.Logger,
-	metricsHandler metrics.Handler,
-	factory ExecutableFactory,
-) *immediateQueue {
+func NewImmediateQueue(shard hshard.Context, category tasks.Category, partitionKey PartitionKey, scheduler Scheduler, rescheduler Rescheduler, options *Options, hostRateLimiter quotas.RequestRateLimiter, logger log.Logger, metricsHandler metrics.Handler, factory ExecutableFactory) *immediateQueue {
 	paginationFnProvider := func(readerID int64, r Range) collection.PaginationFn[tasks.Task] {
 		return func(paginationToken []byte) ([]tasks.Task, []byte, error) {
 			ctx, cancel := newQueueIOContext()
@@ -86,19 +76,7 @@ func NewImmediateQueue(
 	}
 
 	return &immediateQueue{
-		queueBase: newQueueBase(
-			shard,
-			category,
-			paginationFnProvider,
-			scheduler,
-			rescheduler,
-			factory,
-			options,
-			hostRateLimiter,
-			NoopReaderCompletionFn,
-			logger,
-			metricsHandler,
-		),
+		queueBase: newQueueBase(shard, category, partitionKey, paginationFnProvider, scheduler, rescheduler, factory, options, hostRateLimiter, NoopReaderCompletionFn, logger, metricsHandler),
 
 		notifyCh: make(chan struct{}, 1),
 	}

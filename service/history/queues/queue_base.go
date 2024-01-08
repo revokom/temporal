@@ -29,6 +29,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pborman/uuid"
 	"golang.org/x/exp/slices"
 
 	"go.temporal.io/server/common"
@@ -122,9 +123,23 @@ type (
 	}
 )
 
+// PartitionKey uniquely identifies a queue within a task category.
+// It is ok for any prefix of fields here to have the zero value.
+// For example, a Nexus queue will have SegmentID and Name set, but ID unset.
+type PartitionKey struct {
+	SegmentID uuid.UUID
+	Name      string
+	ID        uuid.UUID
+}
+
+func NewDefaultPartitionKey() PartitionKey {
+	return PartitionKey{}
+}
+
 func newQueueBase(
 	shard hshard.Context,
 	category tasks.Category,
+	partitionKey PartitionKey,
 	paginationFnProvider PaginationFnProvider,
 	scheduler Scheduler,
 	rescheduler Rescheduler,
