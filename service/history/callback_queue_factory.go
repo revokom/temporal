@@ -108,6 +108,7 @@ func (f *callbackQueuePartitionFactory) FailoverNamespace(namespaceID string) {
 }
 
 func (f *callbackQueuePartitionFactory) Start() {
+	// TODO: Load all the non-empty queue partitions from persistence.
 }
 
 func (f *callbackQueuePartitionFactory) Stop() {
