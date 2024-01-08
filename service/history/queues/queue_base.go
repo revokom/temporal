@@ -132,8 +132,31 @@ type PartitionKey struct {
 	ID        uuid.UUID
 }
 
+// PartitionMapKey is the same as a PartitionKey but with string IDs in order to be used as a map key.
+type PartitionMapKey struct {
+	SegmentID string
+	Name      string
+	ID        string
+}
+
 func NewDefaultPartitionKey() PartitionKey {
 	return PartitionKey{}
+}
+
+func (k PartitionKey) ToMapKey() PartitionMapKey {
+	return PartitionMapKey{
+		SegmentID: k.SegmentID.String(),
+		Name:      k.Name,
+		ID:        k.ID.String(),
+	}
+}
+
+func (k PartitionMapKey) ToPartitionKey() PartitionKey {
+	return PartitionKey{
+		SegmentID: uuid.Parse(k.SegmentID),
+		Name:      k.Name,
+		ID:        uuid.Parse(k.ID),
+	}
 }
 
 func newQueueBase(

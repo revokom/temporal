@@ -60,7 +60,63 @@ type (
 		HostReaderRateLimiter quotas.RequestRateLimiter
 		scheduler             *callbackScheduler
 	}
+
+	callbackQueuePartitionFactory struct {
+		shardContext      shard.Context
+		scheduler         queues.Scheduler
+		rescheduler       queues.Rescheduler
+		queueOptions      *queues.Options
+		hostRateLimiter   quotas.RequestRateLimiter
+		logger            log.Logger
+		metricsHandler    metrics.Handler
+		executableFactory queues.ExecutableFactory
+
+		sync.Mutex
+		queuesByPartition map[queues.PartitionMapKey]queues.Queue
+	}
 )
+
+func (f *callbackQueuePartitionFactory) Category() tasks.Category {
+	return tasks.CategoryCallback
+}
+
+func (f *callbackQueuePartitionFactory) NotifyNewTasks(newTasks []tasks.Task) {
+	tasksByPartitionKey := make(map[queues.PartitionMapKey][]tasks.Task)
+	for _, task := range newTasks {
+		// TODO: get the actual partition key from the task
+		partitionKey := queues.NewDefaultPartitionKey().ToMapKey()
+		tasksByPartitionKey[partitionKey] = append(tasksByPartitionKey[partitionKey], task)
+	}
+
+	for partitionKey, batch := range tasksByPartitionKey {
+		f.Lock()
+		queue, ok := f.queuesByPartition[partitionKey]
+		if !ok {
+			queue = f.createQueue(partitionKey.ToPartitionKey())
+			f.queuesByPartition[partitionKey] = queue
+		}
+		f.Unlock()
+		if !ok {
+			queue.Start()
+		}
+		queue.NotifyNewTasks(batch)
+	}
+}
+
+func (f *callbackQueuePartitionFactory) FailoverNamespace(namespaceID string) {
+	f.rescheduler.Reschedule(namespaceID)
+}
+
+func (f *callbackQueuePartitionFactory) Start() {
+}
+
+func (f *callbackQueuePartitionFactory) Stop() {
+	f.Lock()
+	defer f.Unlock()
+	for _, queue := range f.queuesByPartition {
+		queue.Stop()
+	}
+}
 
 func NewCallbackQueueFactory(
 	params callbackQueueFactoryParams,
@@ -150,34 +206,53 @@ func (f *callbackQueueFactory) createQueue(shardContext shard.Context, workflowC
 		f.DLQWriter,
 		f.Config.TaskDLQEnabled,
 	)
-	return queues.NewImmediateQueue(
-		shardContext,
-		tasks.CategoryCallback,
-		queues.NewDefaultPartitionKey(),
-		scheduler,
-		rescheduler,
-		&queues.Options{
-			ReaderOptions: queues.ReaderOptions{
-				BatchSize:            f.Config.CallbackTaskBatchSize,
-				MaxPendingTasksCount: f.Config.QueuePendingTaskMaxCount,
-				PollBackoffInterval:  f.Config.CallbackProcessorPollBackoffInterval,
-			},
-			MonitorOptions: queues.MonitorOptions{
-				PendingTasksCriticalCount:   f.Config.QueuePendingTaskCriticalCount,
-				ReaderStuckCriticalAttempts: f.Config.QueueReaderStuckCriticalAttempts,
-				SliceCountCriticalThreshold: f.Config.QueueCriticalSlicesCount,
-			},
-			MaxPollRPS:                          f.Config.CallbackProcessorMaxPollRPS,
-			MaxPollInterval:                     f.Config.CallbackProcessorMaxPollInterval,
-			MaxPollIntervalJitterCoefficient:    f.Config.CallbackProcessorMaxPollIntervalJitterCoefficient,
-			CheckpointInterval:                  f.Config.CallbackProcessorUpdateAckInterval,
-			CheckpointIntervalJitterCoefficient: f.Config.CallbackProcessorUpdateAckIntervalJitterCoefficient,
-			MaxReaderCount:                      f.Config.QueueMaxReaderCount,
+	queueOptions := &queues.Options{
+		ReaderOptions: queues.ReaderOptions{
+			BatchSize:            f.Config.CallbackTaskBatchSize,
+			MaxPendingTasksCount: f.Config.QueuePendingTaskMaxCount,
+			PollBackoffInterval:  f.Config.CallbackProcessorPollBackoffInterval,
 		},
-		f.HostReaderRateLimiter,
-		logger,
-		metricsHandler,
-		factory,
+		MonitorOptions: queues.MonitorOptions{
+			PendingTasksCriticalCount:   f.Config.QueuePendingTaskCriticalCount,
+			ReaderStuckCriticalAttempts: f.Config.QueueReaderStuckCriticalAttempts,
+			SliceCountCriticalThreshold: f.Config.QueueCriticalSlicesCount,
+		},
+		MaxPollRPS:                          f.Config.CallbackProcessorMaxPollRPS,
+		MaxPollInterval:                     f.Config.CallbackProcessorMaxPollInterval,
+		MaxPollIntervalJitterCoefficient:    f.Config.CallbackProcessorMaxPollIntervalJitterCoefficient,
+		CheckpointInterval:                  f.Config.CallbackProcessorUpdateAckInterval,
+		CheckpointIntervalJitterCoefficient: f.Config.CallbackProcessorUpdateAckIntervalJitterCoefficient,
+		MaxReaderCount:                      f.Config.QueueMaxReaderCount,
+	}
+	readerRateLimiter := f.HostReaderRateLimiter
+
+	return &callbackQueuePartitionFactory{
+		shardContext:      shardContext,
+		scheduler:         scheduler,
+		rescheduler:       rescheduler,
+		queueOptions:      queueOptions,
+		hostRateLimiter:   readerRateLimiter,
+		logger:            logger,
+		metricsHandler:    metricsHandler,
+		executableFactory: factory,
+
+		queuesByPartition: make(map[queues.PartitionMapKey]queues.Queue),
+	}
+
+}
+
+func (f *callbackQueuePartitionFactory) createQueue(partitionKey queues.PartitionKey) queues.Queue {
+	return queues.NewImmediateQueue(
+		f.shardContext,
+		tasks.CategoryCallback,
+		partitionKey,
+		f.scheduler,
+		f.rescheduler,
+		f.queueOptions,
+		f.hostRateLimiter,
+		f.logger,
+		f.metricsHandler,
+		f.executableFactory,
 	)
 }
 
