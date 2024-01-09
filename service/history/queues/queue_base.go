@@ -194,7 +194,8 @@ func newQueueBase(
 
 		slices := make([]Slice, 0, len(scopes))
 		for _, scope := range scopes {
-			slices = append(slices, NewSlice(paginationFnProvider, executableFactory, monitor, scope))
+			// TODO: make this configurable
+			slices = append(slices, NewSlice(paginationFnProvider, executableFactory, monitor, scope, groupClassifiersNamespaceID))
 		}
 		if _, err := readerGroup.NewReader(readerID, slices...); err != nil {
 			// we are not able to re-create the scopes & readers we previously have
@@ -304,6 +305,7 @@ func (p *queueBase) processNewRange() {
 			p.executableFactory,
 			p.monitor,
 			newReadScope,
+			groupClassifiersNamespaceID, // TODO: make this configurable
 		))
 	}
 

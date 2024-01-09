@@ -48,8 +48,9 @@ type (
 		maxReaderCount int64
 
 		// state of the action, used when running the action
-		tasksPerNamespace               map[namespace.ID]int
-		pendingTaskPerNamespacePerSlice map[Slice]map[namespace.ID]int
+		tasksPerNamespace map[namespace.ID]int
+		// the key for the inner map is typed any due to the tracker mechanism types
+		pendingTaskPerNamespacePerSlice map[Slice]map[any]int
 		slicesPerNamespace              map[namespace.ID][]Slice
 		namespaceToClearPerSlice        map[Slice][]namespace.ID
 	}
@@ -103,7 +104,7 @@ func (a *actionQueuePendingTask) tryShrinkSlice(
 
 func (a *actionQueuePendingTask) init() {
 	a.tasksPerNamespace = make(map[namespace.ID]int)
-	a.pendingTaskPerNamespacePerSlice = make(map[Slice]map[namespace.ID]int)
+	a.pendingTaskPerNamespacePerSlice = make(map[Slice]map[any]int)
 	a.slicesPerNamespace = make(map[namespace.ID][]Slice)
 	a.namespaceToClearPerSlice = make(map[Slice][]namespace.ID)
 }
@@ -118,8 +119,13 @@ func (a *actionQueuePendingTask) gatherStatistics(
 	//    reversely ordered by slice range. Upon unloading, first unload newer slices.
 	for _, reader := range readers {
 		reader.WalkSlices(func(s Slice) {
-			a.pendingTaskPerNamespacePerSlice[s] = s.TaskStats().PendingPerNamespace
-			for namespaceID, pendingTaskCount := range a.pendingTaskPerNamespacePerSlice[s] {
+			pendingPerNamespace, ok := s.TaskStats().PendingPerGroup["namespaceID"]
+			if !ok {
+				return
+			}
+			a.pendingTaskPerNamespacePerSlice[s] = pendingPerNamespace
+			for namespaceIDAny, pendingTaskCount := range a.pendingTaskPerNamespacePerSlice[s] {
+				namespaceID := namespaceIDAny.(namespace.ID)
 				a.tasksPerNamespace[namespaceID] += pendingTaskCount
 				a.slicesPerNamespace[namespaceID] = append(a.slicesPerNamespace[namespaceID], s)
 			}

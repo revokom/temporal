@@ -57,7 +57,7 @@ type (
 	}
 
 	TaskStats struct {
-		PendingPerNamespace map[namespace.ID]int
+		PendingPerGroup map[string]map[any]int
 	}
 
 	SliceImpl struct {
@@ -74,11 +74,34 @@ type (
 	}
 )
 
+// TODO: move these from here
+func groupClassifierNamespaceID(task tasks.Task) (any, bool) {
+	return namespace.ID(task.GetNamespaceID()), true
+}
+
+var groupClassifiersNamespaceID = map[string]func(tasks.Task) (any, bool){"namespaceID": groupClassifierNamespaceID}
+
+type namespaceIDAndDestination struct {
+	namespaceID string
+	destination string
+}
+
+func groupClassifierNamespaceIDAndDestination(task tasks.Task) (any, bool) {
+	cbTask, ok := task.(*tasks.CallbackTask)
+	if !ok {
+		return nil, false
+	}
+	return namespaceIDAndDestination{task.GetNamespaceID(), cbTask.DestinationAddress}, true
+}
+
+var groupClassifiersNamespaceIDAndDestination = map[string]func(tasks.Task) (any, bool){"namespaceIDAndDestination": groupClassifierNamespaceIDAndDestination}
+
 func NewSlice(
 	paginationFnProvider PaginationFnProvider,
 	executableFactory ExecutableFactory,
 	monitor Monitor,
 	scope Scope,
+	groupClassifiers map[string]func(tasks.Task) (any, bool),
 ) *SliceImpl {
 	return &SliceImpl{
 		paginationFnProvider: paginationFnProvider,
@@ -87,7 +110,7 @@ func NewSlice(
 		iterators: []Iterator{
 			NewIterator(paginationFnProvider, scope.Range),
 		},
-		executableTracker: newExecutableTracker(),
+		executableTracker: newExecutableTracker(groupClassifiers),
 		monitor:           monitor,
 	}
 }
@@ -344,14 +367,19 @@ func (s *SliceImpl) shrinkPredicate() {
 		return
 	}
 
-	if len(s.executableTracker.pendingPerNamespace) > shrinkPredicateMaxPendingNamespaces {
+	// TODO: this should be generic enough to shrink any predicate type, probably doesn't belong here.
+	pendingPerNamespace, ok := s.executableTracker.pendingPerGroup["namespaceID"]
+	if !ok {
+		return
+	}
+	if len(pendingPerNamespace) > shrinkPredicateMaxPendingNamespaces {
 		// only shrink predicate if there're few namespaces left
 		return
 	}
 
-	pendingNamespaceIDs := make([]string, 0, len(s.executableTracker.pendingPerNamespace))
-	for namespaceID := range s.executableTracker.pendingPerNamespace {
-		pendingNamespaceIDs = append(pendingNamespaceIDs, namespaceID.String())
+	pendingNamespaceIDs := make([]string, 0, len(pendingPerNamespace))
+	for namespaceID := range pendingPerNamespace {
+		pendingNamespaceIDs = append(pendingNamespaceIDs, namespaceID.(namespace.ID).String())
 	}
 	namespacePredicate := tasks.NewNamespacePredicate(pendingNamespaceIDs)
 	s.scope.Predicate = tasks.AndPredicates(s.scope.Predicate, namespacePredicate)
@@ -413,7 +441,7 @@ func (s *SliceImpl) TaskStats() TaskStats {
 	s.stateSanityCheck()
 
 	return TaskStats{
-		PendingPerNamespace: s.executableTracker.pendingPerNamespace,
+		PendingPerGroup: s.executableTracker.pendingPerGroup,
 	}
 }
 
