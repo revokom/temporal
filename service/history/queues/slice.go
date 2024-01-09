@@ -27,12 +27,13 @@ package queues
 import (
 	"fmt"
 
-	"go.temporal.io/server/common/namespace"
 	"go.temporal.io/server/service/history/tasks"
+	"golang.org/x/exp/maps"
 )
 
 const (
-	shrinkPredicateMaxPendingNamespaces = 3
+	// TODO: document and consider allowing different maxes per key
+	shrinkPredicateMaxPendingKeys = 3
 )
 
 type (
@@ -57,7 +58,7 @@ type (
 	}
 
 	TaskStats struct {
-		PendingPerGroup map[string]map[any]int
+		PendingPerKey map[any]int
 	}
 
 	SliceImpl struct {
@@ -74,34 +75,12 @@ type (
 	}
 )
 
-// TODO: move these from here
-func groupClassifierNamespaceID(task tasks.Task) (any, bool) {
-	return namespace.ID(task.GetNamespaceID()), true
-}
-
-var groupClassifiersNamespaceID = map[string]func(tasks.Task) (any, bool){"namespaceID": groupClassifierNamespaceID}
-
-type namespaceIDAndDestination struct {
-	namespaceID string
-	destination string
-}
-
-func groupClassifierNamespaceIDAndDestination(task tasks.Task) (any, bool) {
-	cbTask, ok := task.(*tasks.CallbackTask)
-	if !ok {
-		return nil, false
-	}
-	return namespaceIDAndDestination{task.GetNamespaceID(), cbTask.DestinationAddress}, true
-}
-
-var groupClassifiersNamespaceIDAndDestination = map[string]func(tasks.Task) (any, bool){"namespaceIDAndDestination": groupClassifierNamespaceIDAndDestination}
-
 func NewSlice(
 	paginationFnProvider PaginationFnProvider,
 	executableFactory ExecutableFactory,
 	monitor Monitor,
 	scope Scope,
-	groupClassifiers map[string]func(tasks.Task) (any, bool),
+	grouper Grouper,
 ) *SliceImpl {
 	return &SliceImpl{
 		paginationFnProvider: paginationFnProvider,
@@ -110,7 +89,7 @@ func NewSlice(
 		iterators: []Iterator{
 			NewIterator(paginationFnProvider, scope.Range),
 		},
-		executableTracker: newExecutableTracker(groupClassifiers),
+		executableTracker: newExecutableTracker(grouper),
 		monitor:           monitor,
 	}
 }
@@ -337,6 +316,7 @@ func (s *SliceImpl) ShrinkScope() {
 	s.shrinkRange()
 	s.shrinkPredicate()
 
+	// shrinkRange shrinks the executableTracker, which may remove tracked pending executables.
 	s.monitor.SetSlicePendingTaskCount(s, len(s.executableTracker.pendingExecutables))
 }
 
@@ -368,21 +348,14 @@ func (s *SliceImpl) shrinkPredicate() {
 	}
 
 	// TODO: this should be generic enough to shrink any predicate type, probably doesn't belong here.
-	pendingPerNamespace, ok := s.executableTracker.pendingPerGroup["namespaceID"]
-	if !ok {
-		return
-	}
-	if len(pendingPerNamespace) > shrinkPredicateMaxPendingNamespaces {
+	pendingPerKey := s.executableTracker.pendingPerKey
+	if len(pendingPerKey) > shrinkPredicateMaxPendingKeys {
 		// only shrink predicate if there're few namespaces left
 		return
 	}
 
-	pendingNamespaceIDs := make([]string, 0, len(pendingPerNamespace))
-	for namespaceID := range pendingPerNamespace {
-		pendingNamespaceIDs = append(pendingNamespaceIDs, namespaceID.(namespace.ID).String())
-	}
-	namespacePredicate := tasks.NewNamespacePredicate(pendingNamespaceIDs)
-	s.scope.Predicate = tasks.AndPredicates(s.scope.Predicate, namespacePredicate)
+	minimalPredicate := s.indexer.Predicate(maps.Keys(pendingPerKey))
+	s.scope.Predicate = tasks.AndPredicates(s.scope.Predicate, minimalPredicate)
 }
 
 func (s *SliceImpl) SelectTasks(readerID int64, batchSize int) ([]Executable, error) {
@@ -441,7 +414,7 @@ func (s *SliceImpl) TaskStats() TaskStats {
 	s.stateSanityCheck()
 
 	return TaskStats{
-		PendingPerGroup: s.executableTracker.pendingPerGroup,
+		PendingPerKey: s.executableTracker.pendingPerKey,
 	}
 }
 

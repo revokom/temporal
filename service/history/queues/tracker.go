@@ -26,7 +26,6 @@ package queues
 
 import (
 	"fmt"
-	"maps"
 
 	ctasks "go.temporal.io/server/common/tasks"
 	"go.temporal.io/server/service/history/tasks"
@@ -37,22 +36,16 @@ type (
 	// currently it's used as a implementation detail in SliceImpl
 	executableTracker struct {
 		pendingExecutables map[tasks.Key]Executable
-		groupClassifiers   map[string]func(tasks.Task) (any, bool)
-		pendingPerGroup    map[string]map[any]int
+		indexer            Grouper
+		pendingPerKey      map[any]int
 	}
 )
 
-func newExecutableTracker(
-	groupClassifiers map[string]func(tasks.Task) (any, bool),
-) *executableTracker {
-	pendingPerGroup := make(map[string]map[any]int, len(groupClassifiers))
-	for k := range groupClassifiers {
-		pendingPerGroup[k] = make(map[any]int, 0)
-	}
+func newExecutableTracker(indexer Grouper) *executableTracker {
 	return &executableTracker{
 		pendingExecutables: make(map[tasks.Key]Executable),
-		groupClassifiers:   groupClassifiers,
-		pendingPerGroup:    pendingPerGroup,
+		indexer:            indexer,
+		pendingPerKey:      make(map[any]int, 0),
 	}
 }
 
@@ -62,11 +55,8 @@ func (t *executableTracker) split(
 ) (*executableTracker, *executableTracker) {
 	that := executableTracker{
 		pendingExecutables: make(map[tasks.Key]Executable, len(t.pendingExecutables)/2),
-		groupClassifiers:   t.groupClassifiers,
-		pendingPerGroup:    make(map[string]map[any]int, len(t.pendingPerGroup)),
-	}
-	for k := range t.pendingPerGroup {
-		that.pendingPerGroup[k] = make(map[any]int, 0)
+		indexer:            t.indexer,
+		pendingPerKey:      make(map[any]int, len(t.pendingPerKey)),
 	}
 
 	for key, executable := range t.pendingExecutables {
@@ -82,41 +72,29 @@ func (t *executableTracker) split(
 		delete(t.pendingExecutables, key)
 		that.pendingExecutables[key] = executable
 
-		for groupName, classifier := range t.groupClassifiers {
-			groupKey, ok := classifier(executable)
-			if !ok {
-				continue
-			}
-			t.pendingPerGroup[groupName][groupKey]--
-			that.pendingPerGroup[groupName][groupKey]++
-		}
+		groupKey := t.indexer.Key(executable)
+		t.pendingPerKey[groupKey]--
+		that.pendingPerKey[groupKey]++
 	}
 
 	return t, &that
 }
 
 func (t *executableTracker) merge(incomingTracker *executableTracker) *executableTracker {
-	thisExecutables, thisPendingTasks := t.pendingExecutables, t.pendingPerGroup
-	thatExecutables, thatPendingTasks := incomingTracker.pendingExecutables, incomingTracker.pendingPerGroup
+	thisExecutables, thisPendingTasks := t.pendingExecutables, t.pendingPerKey
+	thatExecutables, thatPendingTasks := incomingTracker.pendingExecutables, incomingTracker.pendingPerKey
 	if len(thisExecutables) < len(thatExecutables) {
 		thisExecutables, thatExecutables = thatExecutables, thisExecutables
 		thisPendingTasks = thatPendingTasks
 	}
 
-	maps.Copy(t.groupClassifiers, incomingTracker.groupClassifiers)
-	maps.Copy(t.pendingExecutables, incomingTracker.pendingExecutables)
-
-	for groupName := range t.groupClassifiers {
-		pending, ok := thisPendingTasks[groupName]
-		if !ok {
-			thisPendingTasks[groupName] = thatPendingTasks[groupName]
-			continue
-		}
-		maps.Copy(pending, thatPendingTasks[groupName])
+	for key, executable := range thatExecutables {
+		thisExecutables[key] = executable
+		key := t.indexer.Key(executable)
+		thisPendingTasks[key]++
 	}
-
-	// t.pendingExecutables = thisExecutables
-	t.pendingPerGroup = thisPendingTasks
+	t.pendingExecutables = thisExecutables
+	t.pendingPerKey = thisPendingTasks
 	return t
 }
 
@@ -124,26 +102,15 @@ func (t *executableTracker) add(
 	executable Executable,
 ) {
 	t.pendingExecutables[executable.GetKey()] = executable
-	for groupName, classifier := range t.groupClassifiers {
-		groupKey, ok := classifier(executable)
-		if !ok {
-			continue
-		}
-		t.pendingPerGroup[groupName][groupKey]++
-	}
+	key := t.indexer.Key(executable)
+	t.pendingPerKey[key]++
 }
 
 func (t *executableTracker) shrink() tasks.Key {
 	minPendingTaskKey := tasks.MaximumKey
 	for key, executable := range t.pendingExecutables {
 		if executable.State() == ctasks.TaskStateAcked {
-			for groupName, classifier := range t.groupClassifiers {
-				groupKey, ok := classifier(executable)
-				if !ok {
-					continue
-				}
-				t.pendingPerGroup[groupName][groupKey]--
-			}
+			t.pendingPerKey[t.indexer.Key(executable)]--
 			delete(t.pendingExecutables, key)
 			continue
 		}
@@ -151,11 +118,9 @@ func (t *executableTracker) shrink() tasks.Key {
 		minPendingTaskKey = tasks.MinKey(minPendingTaskKey, key)
 	}
 
-	for _, group := range t.pendingPerGroup {
-		for groupKey, numPending := range group {
-			if numPending == 0 {
-				delete(group, groupKey)
-			}
+	for key, numPending := range t.pendingPerKey {
+		if numPending == 0 {
+			delete(t.pendingPerKey, key)
 		}
 	}
 
@@ -168,5 +133,5 @@ func (t *executableTracker) clear() {
 	}
 
 	t.pendingExecutables = make(map[tasks.Key]Executable)
-	t.pendingPerGroup = make(map[string]map[any]int, len(t.groupClassifiers))
+	t.pendingPerKey = make(map[any]int, 0)
 }
