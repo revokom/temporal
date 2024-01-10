@@ -95,11 +95,11 @@ func NewDestinationPredicate(
 }
 
 func (n *DestinationPredicate) Test(task Task) bool {
-	dTask, ok := task.(*CallbackTask)
+	dTask, ok := task.(HasDestination)
 	if !ok {
 		return false
 	}
-	_, ok = n.Destinations[dTask.DestinationAddress]
+	_, ok = n.Destinations[dTask.GetDestination()]
 	return ok
 }
 
