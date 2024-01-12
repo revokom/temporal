@@ -164,7 +164,7 @@ func (t *callbackQueueActiveTaskExecutor) processCallbackTask(
 	}
 	if callback.Inner.State != enumspb.CALLBACK_STATE_SCHEDULED {
 		// TODO: think about the error returned here
-		return fmt.Errorf("invalid callback state for task")
+		return nil
 	}
 	// if callback.Inner.Attempt != task.Attempt {
 	// 	return fmt.Errorf("invalid callback attempt for task")
