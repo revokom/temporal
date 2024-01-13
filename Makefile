@@ -32,8 +32,8 @@ GOPATH      ?= $(shell go env GOPATH)
 CGO_ENABLED ?= 0
 
 TEST_ARGS ?= -race
-PERSISTENCE_TYPE ?= nosql
-PERSISTENCE_DRIVER ?= cassandra
+PERSISTENCE_TYPE ?= sql
+PERSISTENCE_DRIVER ?= sqlite
 
 # Optional args to create multiple keyspaces:
 # make install-schema TEMPORAL_DB=temporal2 VISIBILITY_DB=temporal_visibility2

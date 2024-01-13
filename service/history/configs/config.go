@@ -379,7 +379,7 @@ func NewConfig(
 		RangeSizeBits:                  20, // 20 bits for sequencer, 2^20 sequence number for any range
 		AcquireShardInterval:           dc.GetDurationProperty(dynamicconfig.AcquireShardInterval, time.Minute),
 		AcquireShardConcurrency:        dc.GetIntProperty(dynamicconfig.AcquireShardConcurrency, 10),
-		ShardIOConcurrency:             dc.GetIntProperty(dynamicconfig.ShardIOConcurrency, 1),
+		ShardIOConcurrency:             dc.GetIntProperty(dynamicconfig.ShardIOConcurrency, 10),
 		ShardLingerOwnershipCheckQPS:   dc.GetIntProperty(dynamicconfig.ShardLingerOwnershipCheckQPS, 4),
 		ShardLingerTimeLimit:           dc.GetDurationProperty(dynamicconfig.ShardLingerTimeLimit, 0),
 		ShardOwnershipAssertionEnabled: dc.GetBoolProperty(dynamicconfig.ShardOwnershipAssertionEnabled, true),
