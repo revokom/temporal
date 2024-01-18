@@ -4,9 +4,9 @@ datasources:
   type: prometheus
   url: http://localhost:9090
   access: proxy
-  isDefault: true
+  isDefault: false
 - name: Prometheus-Darwin
   type: prometheus
   url: http://prometheus:9090
   access: proxy
-  isDefault: false
+  isDefault: true
