@@ -56,7 +56,7 @@ services:
       - cluster.routing.allocation.disk.watermark.high=256mb
       - cluster.routing.allocation.disk.watermark.flood_stage=128mb
       - discovery.type=single-node
-      - ES_JAVA_OPTS=-Xms100m -Xmx100m
+      - ES_JAVA_OPTS=-Xms100m -Xmx4g
     networks:
       - temporal-dev-network
   prometheus:
