@@ -119,6 +119,21 @@ func (mr *MockClientMockRecorder) CountGroupBy(ctx, index, query, aggName, agg i
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CountGroupBy", reflect.TypeOf((*MockClient)(nil).CountGroupBy), ctx, index, query, aggName, agg)
 }
 
+// CreateIndex mocks base method.
+func (m *MockClient) CreateIndex(ctx context.Context, index string, body map[string]any) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateIndex", ctx, index, body)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateIndex indicates an expected call of CreateIndex.
+func (mr *MockClientMockRecorder) CreateIndex(ctx, index, body interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateIndex", reflect.TypeOf((*MockClient)(nil).CreateIndex), ctx, index, body)
+}
+
 // Get mocks base method.
 func (m *MockClient) Get(ctx context.Context, index, docID string) (*v7.GetResult, error) {
 	m.ctrl.T.Helper()
@@ -147,6 +162,21 @@ func (m *MockClient) GetMapping(ctx context.Context, index string) (map[string]s
 func (mr *MockClientMockRecorder) GetMapping(ctx, index interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMapping", reflect.TypeOf((*MockClient)(nil).GetMapping), ctx, index)
+}
+
+// IndexExists mocks base method.
+func (m *MockClient) IndexExists(ctx context.Context, index string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IndexExists", ctx, index)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IndexExists indicates an expected call of IndexExists.
+func (mr *MockClientMockRecorder) IndexExists(ctx, index interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IndexExists", reflect.TypeOf((*MockClient)(nil).IndexExists), ctx, index)
 }
 
 // IsPointInTimeSupported mocks base method.
@@ -350,6 +380,21 @@ func (mr *MockCLIClientMockRecorder) CountGroupBy(ctx, index, query, aggName, ag
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CountGroupBy", reflect.TypeOf((*MockCLIClient)(nil).CountGroupBy), ctx, index, query, aggName, agg)
 }
 
+// CreateIndex mocks base method.
+func (m *MockCLIClient) CreateIndex(ctx context.Context, index string, body map[string]any) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateIndex", ctx, index, body)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateIndex indicates an expected call of CreateIndex.
+func (mr *MockCLIClientMockRecorder) CreateIndex(ctx, index, body interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateIndex", reflect.TypeOf((*MockCLIClient)(nil).CreateIndex), ctx, index, body)
+}
+
 // Delete mocks base method.
 func (m *MockCLIClient) Delete(ctx context.Context, indexName, docID string, version int64) error {
 	m.ctrl.T.Helper()
@@ -392,6 +437,21 @@ func (m *MockCLIClient) GetMapping(ctx context.Context, index string) (map[strin
 func (mr *MockCLIClientMockRecorder) GetMapping(ctx, index interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMapping", reflect.TypeOf((*MockCLIClient)(nil).GetMapping), ctx, index)
+}
+
+// IndexExists mocks base method.
+func (m *MockCLIClient) IndexExists(ctx context.Context, index string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IndexExists", ctx, index)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IndexExists indicates an expected call of IndexExists.
+func (mr *MockCLIClientMockRecorder) IndexExists(ctx, index interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IndexExists", reflect.TypeOf((*MockCLIClient)(nil).IndexExists), ctx, index)
 }
 
 // IsPointInTimeSupported mocks base method.
@@ -537,18 +597,18 @@ func (m *MockIntegrationTestsClient) EXPECT() *MockIntegrationTestsClientMockRec
 }
 
 // CreateIndex mocks base method.
-func (m *MockIntegrationTestsClient) CreateIndex(ctx context.Context, index string) (bool, error) {
+func (m *MockIntegrationTestsClient) CreateIndex(ctx context.Context, index string, body map[string]any) (bool, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateIndex", ctx, index)
+	ret := m.ctrl.Call(m, "CreateIndex", ctx, index, body)
 	ret0, _ := ret[0].(bool)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CreateIndex indicates an expected call of CreateIndex.
-func (mr *MockIntegrationTestsClientMockRecorder) CreateIndex(ctx, index interface{}) *gomock.Call {
+func (mr *MockIntegrationTestsClientMockRecorder) CreateIndex(ctx, index, body interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateIndex", reflect.TypeOf((*MockIntegrationTestsClient)(nil).CreateIndex), ctx, index)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateIndex", reflect.TypeOf((*MockIntegrationTestsClient)(nil).CreateIndex), ctx, index, body)
 }
 
 // DeleteIndex mocks base method.

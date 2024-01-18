@@ -374,7 +374,7 @@ func newElasticsearchVisibilityStore(
 		esProcessor.Start()
 		esProcessorAckTimeout = esProcessorConfig.ESProcessorAckTimeout
 	}
-	s := elasticsearch.NewVisibilityStore(
+	s := elasticsearch.NewVisibilityStorePerNs(
 		esClient,
 		defaultIndexName,
 		searchAttributesProvider,

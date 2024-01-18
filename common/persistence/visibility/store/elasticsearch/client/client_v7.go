@@ -63,6 +63,8 @@ var (
 )
 
 var _ Client = (*clientImpl)(nil)
+var _ CLIClient = (*clientImpl)(nil)
+var _ IntegrationTestsClient = (*clientImpl)(nil)
 
 // newClient create a ES client
 func newClient(cfg *Config, httpClient *http.Client, logger log.Logger) (*clientImpl, error) {
@@ -333,8 +335,12 @@ func (c *clientImpl) GetDateFieldType() string {
 	return "date_nanos"
 }
 
-func (c *clientImpl) CreateIndex(ctx context.Context, index string) (bool, error) {
-	resp, err := c.esClient.CreateIndex(index).Do(ctx)
+func (c *clientImpl) CreateIndex(
+	ctx context.Context,
+	index string,
+	body map[string]any,
+) (bool, error) {
+	resp, err := c.esClient.CreateIndex(index).BodyJson(body).Do(ctx)
 	if err != nil {
 		return false, err
 	}
