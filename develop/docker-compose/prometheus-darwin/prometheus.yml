@@ -10,3 +10,4 @@ scrape_configs:
       - targets:
           # port should match value from server config listenAddress.
           - host.docker.internal:8000
+          - host.docker.internal:8081
