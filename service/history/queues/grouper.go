@@ -72,6 +72,7 @@ func (GrouperNamespaceIDAndDestination) Key(task tasks.Task) (key any) {
 func (GrouperNamespaceIDAndDestination) Predicate(keys []any) tasks.Predicate {
 	pred := predicates.Empty[tasks.Task]()
 	for _, namespaceID := range keys {
+		// TODO: figure out panic here
 		key := namespaceID.(namespaceIDAndDestination)
 		// We probably should just combine the two predicate implementations for better shrinking logic.
 		pred = predicates.Or(pred, predicates.And(

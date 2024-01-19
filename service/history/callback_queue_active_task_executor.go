@@ -82,7 +82,14 @@ func newCallbackQueueActiveTaskExecutor(
 func (t *callbackQueueActiveTaskExecutor) Execute(
 	ctx context.Context,
 	executable queues.Executable,
-) queues.ExecuteResponse {
+) (res queues.ExecuteResponse) {
+	defer func() {
+		if res.ExecutionErr == nil {
+			elapsed := time.Since(executable.GetVisibilityTime())
+			t.metricsHandler.WithTags(metrics.StringTag("address", executable.GetTask().(*tasks.CallbackTask).DestinationAddress)).
+				Timer("callback_e2e_latency").Record(elapsed)
+		}
+	}()
 	task := executable.GetTask()
 	taskType := "Active" + task.GetType().String()
 	namespaceTag, replicationState := getNamespaceTagAndReplicationStateByID(

@@ -153,12 +153,16 @@ func (f *callbackQueueFactory) CreateQueue(
 		rescheduler,
 		&queues.Options{
 			ReaderOptions: queues.ReaderOptions{
-				BatchSize:            f.Config.CallbackTaskBatchSize,
-				MaxPendingTasksCount: f.Config.QueuePendingTaskMaxCount,
-				PollBackoffInterval:  f.Config.CallbackProcessorPollBackoffInterval,
+				BatchSize: f.Config.CallbackTaskBatchSize,
+				MaxPendingTasksCount: func() int {
+					return 50
+				}, // TODO remove
+				PollBackoffInterval: f.Config.CallbackProcessorPollBackoffInterval,
 			},
 			MonitorOptions: queues.MonitorOptions{
-				PendingTasksCriticalCount:   f.Config.QueuePendingTaskCriticalCount,
+				PendingTasksCriticalCount: func() int {
+					return 25
+				}, // TODO remove
 				ReaderStuckCriticalAttempts: f.Config.QueueReaderStuckCriticalAttempts,
 				SliceCountCriticalThreshold: f.Config.QueueCriticalSlicesCount,
 			},
