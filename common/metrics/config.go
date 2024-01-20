@@ -73,6 +73,9 @@ type (
 		// - "milliseconds"
 		// - "bytes"
 		PerUnitHistogramBoundaries map[string][]float64 `yaml:"perUnitHistogramBoundaries"`
+
+		// EnableProcessMetrics enables reporting of metrics for the Go process running the Temporal server.
+		EnableProcessMetrics bool `yaml:"enableProcessMetrics"`
 	}
 
 	// StatsdConfig contains the config items for statsd metrics reporter

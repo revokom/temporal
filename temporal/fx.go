@@ -29,6 +29,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/pborman/uuid"
 	"go.opentelemetry.io/otel"
@@ -39,6 +40,8 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.10.0"
 	"go.opentelemetry.io/otel/trace"
 	"go.temporal.io/api/serviceerror"
+	"go.temporal.io/server/common/clock"
+	"go.temporal.io/server/common/procmon"
 	"go.uber.org/fx"
 	"go.uber.org/fx/fxevent"
 	"golang.org/x/exp/maps"
@@ -160,6 +163,21 @@ var (
 		TraceExportModule,
 		FxLogAdapter,
 		fx.Invoke(ServerLifetimeHooks),
+		fx.Invoke(func(
+			cfg *config.Config,
+			lifecycle fx.Lifecycle,
+			dc *dynamicconfig.Collection,
+			metricsHandler metrics.Handler,
+			logger log.Logger,
+		) error {
+			if !cfg.Global.Metrics.EnableProcessMetrics {
+				return nil
+			}
+			sampleInterval := dc.GetDurationProperty(dynamicconfig.ProcessMonitorSamplingInterval, time.Second)
+			monitor := procmon.NewProcessMonitor(sampleInterval, metricsHandler, clock.NewRealTimeSource(), logger)
+			lifecycle.Append(fx.StartStopHook(monitor.Start, monitor.Stop))
+			return nil
+		}),
 	)
 )
 

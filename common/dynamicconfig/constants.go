@@ -122,6 +122,8 @@ const (
 	// OperatorRPSRatio is the percentage of the rate limit provided to priority rate limiters that should be used for
 	// operator API calls (highest priority). Should be >0.0 and <= 1.0 (defaults to 20% if not specified)
 	OperatorRPSRatio = "system.operatorRPSRatio"
+	// ProcessMonitorSamplingInterval is the interval at which the process monitor will sample resource usage.
+	ProcessMonitorSamplingInterval = "system.processMonitorSamplingInterval"
 
 	// Whether the deadlock detector should dump goroutines
 	DeadlockDumpGoroutines = "system.deadlock.DumpGoroutines"

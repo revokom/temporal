@@ -1144,6 +1144,16 @@ var (
 	CassandraSessionRefreshFailures        = NewCounterDef("cassandra_session_refresh_failures")
 )
 
+// ProcessStats which are only enabled if configured. These are only recorded if [ClientConfig.EnableProcessMetrics] is
+// set to true.
+var ProcessStats = &struct {
+	CPUUsage    gaugeDefinition
+	MemoryUsage gaugeDefinition
+}{
+	NewGaugeDef("server_process_cpu_usage", WithUnit("percentage"), WithDescription("The current CPU usage of the process (0-100).")),
+	NewGaugeDef("server_process_memory_usage", WithUnit("bytes"), WithDescription("The current memory usage of the process.")),
+}
+
 // DEPRECATED: remove interim metric names for tracking fraction of FE->History calls during migration
 const (
 	AccessHistoryOld = "AccessHistoryOld"
