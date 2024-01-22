@@ -60,6 +60,21 @@ func (m *MockClient) EXPECT() *MockClientMockRecorder {
 	return m.recorder
 }
 
+// CatIndices mocks base method.
+func (m *MockClient) CatIndices(ctx context.Context) (v7.CatIndicesResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CatIndices", ctx)
+	ret0, _ := ret[0].(v7.CatIndicesResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CatIndices indicates an expected call of CatIndices.
+func (mr *MockClientMockRecorder) CatIndices(ctx interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CatIndices", reflect.TypeOf((*MockClient)(nil).CatIndices), ctx)
+}
+
 // ClosePointInTime mocks base method.
 func (m *MockClient) ClosePointInTime(ctx context.Context, id string) (bool, error) {
 	m.ctrl.T.Helper()
@@ -132,6 +147,21 @@ func (m *MockClient) CreateIndex(ctx context.Context, index string, body map[str
 func (mr *MockClientMockRecorder) CreateIndex(ctx, index, body interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateIndex", reflect.TypeOf((*MockClient)(nil).CreateIndex), ctx, index, body)
+}
+
+// DeleteIndex mocks base method.
+func (m *MockClient) DeleteIndex(ctx context.Context, index string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteIndex", ctx, index)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DeleteIndex indicates an expected call of DeleteIndex.
+func (mr *MockClientMockRecorder) DeleteIndex(ctx, index interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteIndex", reflect.TypeOf((*MockClient)(nil).DeleteIndex), ctx, index)
 }
 
 // Get mocks base method.
@@ -321,6 +351,21 @@ func (m *MockCLIClient) EXPECT() *MockCLIClientMockRecorder {
 	return m.recorder
 }
 
+// CatIndices mocks base method.
+func (m *MockCLIClient) CatIndices(ctx context.Context) (v7.CatIndicesResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CatIndices", ctx)
+	ret0, _ := ret[0].(v7.CatIndicesResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CatIndices indicates an expected call of CatIndices.
+func (mr *MockCLIClientMockRecorder) CatIndices(ctx interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CatIndices", reflect.TypeOf((*MockCLIClient)(nil).CatIndices), ctx)
+}
+
 // ClosePointInTime mocks base method.
 func (m *MockCLIClient) ClosePointInTime(ctx context.Context, id string) (bool, error) {
 	m.ctrl.T.Helper()
@@ -407,6 +452,21 @@ func (m *MockCLIClient) Delete(ctx context.Context, indexName, docID string, ver
 func (mr *MockCLIClientMockRecorder) Delete(ctx, indexName, docID, version interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockCLIClient)(nil).Delete), ctx, indexName, docID, version)
+}
+
+// DeleteIndex mocks base method.
+func (m *MockCLIClient) DeleteIndex(ctx context.Context, index string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteIndex", ctx, index)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DeleteIndex indicates an expected call of DeleteIndex.
+func (mr *MockCLIClientMockRecorder) DeleteIndex(ctx, index interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteIndex", reflect.TypeOf((*MockCLIClient)(nil).DeleteIndex), ctx, index)
 }
 
 // Get mocks base method.

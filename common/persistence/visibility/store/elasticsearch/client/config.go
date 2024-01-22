@@ -42,6 +42,7 @@ const (
 // Config for connecting to Elasticsearch
 type (
 	Config struct {
+		PluginName                   string                    `yaml:"pluginName"`
 		Version                      string                    `yaml:"version"`
 		URL                          url.URL                   `yaml:"url"`
 		URLs                         []url.URL                 `yaml:"urls"`

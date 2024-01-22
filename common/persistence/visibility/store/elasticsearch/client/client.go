@@ -53,7 +53,9 @@ type (
 		WaitForYellowStatus(ctx context.Context, index string) (string, error)
 		GetMapping(ctx context.Context, index string) (map[string]string, error)
 		CreateIndex(ctx context.Context, index string, body map[string]any) (bool, error)
+		DeleteIndex(ctx context.Context, index string) (bool, error)
 		IndexExists(ctx context.Context, index string) (bool, error)
+		CatIndices(ctx context.Context) (elastic.CatIndicesResponse, error)
 
 		OpenScroll(ctx context.Context, p *SearchParameters, keepAliveInterval string) (*elastic.SearchResult, error)
 		Scroll(ctx context.Context, id string, keepAliveInterval string) (*elastic.SearchResult, error)

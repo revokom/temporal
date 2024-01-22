@@ -91,6 +91,7 @@ func (s *VisibilityPersistenceSuite) SetupSuite() {
 		nil,
 		s.SearchAttributesProvider,
 		s.SearchAttributesMapperProvider,
+		nil,
 		dynamicconfig.GetIntPropertyFn(1000),
 		dynamicconfig.GetIntPropertyFn(1000),
 		dynamicconfig.GetFloatPropertyFn(0.2),

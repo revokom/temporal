@@ -30,6 +30,7 @@ import (
 	"go.temporal.io/server/common/log"
 	"go.temporal.io/server/common/log/tag"
 	"go.temporal.io/server/common/metrics"
+	"go.temporal.io/server/common/namespace"
 	"go.temporal.io/server/common/persistence/sql/sqlplugin/mysql"
 	"go.temporal.io/server/common/persistence/sql/sqlplugin/postgresql"
 	"go.temporal.io/server/common/persistence/sql/sqlplugin/sqlite"
@@ -63,6 +64,7 @@ func NewManager(
 	esProcessorConfig *elasticsearch.ProcessorConfig,
 	searchAttributesProvider searchattribute.Provider,
 	searchAttributesMapperProvider searchattribute.MapperProvider,
+	namespaceRegistry namespace.Registry,
 
 	maxReadQPS dynamicconfig.IntPropertyFn,
 	maxWriteQPS dynamicconfig.IntPropertyFn,
@@ -84,6 +86,7 @@ func NewManager(
 		esProcessorConfig,
 		searchAttributesProvider,
 		searchAttributesMapperProvider,
+		namespaceRegistry,
 		maxReadQPS,
 		maxWriteQPS,
 		operatorRPSRatio,
@@ -108,6 +111,7 @@ func NewManager(
 		esProcessorConfig,
 		searchAttributesProvider,
 		searchAttributesMapperProvider,
+		namespaceRegistry,
 		maxReadQPS,
 		maxWriteQPS,
 		operatorRPSRatio,
@@ -199,6 +203,7 @@ func newVisibilityManagerFromDataStoreConfig(
 	esProcessorConfig *elasticsearch.ProcessorConfig,
 	searchAttributesProvider searchattribute.Provider,
 	searchAttributesMapperProvider searchattribute.MapperProvider,
+	namespaceRegistry namespace.Registry,
 
 	maxReadQPS dynamicconfig.IntPropertyFn,
 	maxWriteQPS dynamicconfig.IntPropertyFn,
@@ -217,6 +222,7 @@ func newVisibilityManagerFromDataStoreConfig(
 		esProcessorConfig,
 		searchAttributesProvider,
 		searchAttributesMapperProvider,
+		namespaceRegistry,
 		visibilityDisableOrderByClause,
 		visibilityEnableManualPagination,
 		metricsHandler,
@@ -248,6 +254,7 @@ func newVisibilityStoreFromDataStoreConfig(
 	esProcessorConfig *elasticsearch.ProcessorConfig,
 	searchAttributesProvider searchattribute.Provider,
 	searchAttributesMapperProvider searchattribute.MapperProvider,
+	namespaceRegistry namespace.Registry,
 	visibilityDisableOrderByClause dynamicconfig.BoolPropertyFnWithNamespaceFilter,
 	visibilityEnableManualPagination dynamicconfig.BoolPropertyFnWithNamespaceFilter,
 
@@ -289,11 +296,13 @@ func newVisibilityStoreFromDataStoreConfig(
 		)
 	} else if dsConfig.Elasticsearch != nil {
 		visStore = newElasticsearchVisibilityStore(
+			dsConfig.Elasticsearch.PluginName,
 			dsConfig.Elasticsearch.GetVisibilityIndex(),
 			esClient,
 			esProcessorConfig,
 			searchAttributesProvider,
 			searchAttributesMapperProvider,
+			namespaceRegistry,
 			visibilityDisableOrderByClause,
 			visibilityEnableManualPagination,
 			metricsHandler,
@@ -351,11 +360,13 @@ func newStandardVisibilityStore(
 }
 
 func newElasticsearchVisibilityStore(
+	pluginName string,
 	defaultIndexName string,
 	esClient esclient.Client,
 	esProcessorConfig *elasticsearch.ProcessorConfig,
 	searchAttributesProvider searchattribute.Provider,
 	searchAttributesMapperProvider searchattribute.MapperProvider,
+	namespaceRegistry namespace.Registry,
 	visibilityDisableOrderByClause dynamicconfig.BoolPropertyFnWithNamespaceFilter,
 	visibilityEnableManualPagination dynamicconfig.BoolPropertyFnWithNamespaceFilter,
 	metricsHandler metrics.Handler,
@@ -374,15 +385,45 @@ func newElasticsearchVisibilityStore(
 		esProcessor.Start()
 		esProcessorAckTimeout = esProcessorConfig.ESProcessorAckTimeout
 	}
-	s := elasticsearch.NewVisibilityStorePerNs(
-		esClient,
-		defaultIndexName,
-		searchAttributesProvider,
-		searchAttributesMapperProvider,
-		esProcessor,
-		esProcessorAckTimeout,
-		visibilityDisableOrderByClause,
-		visibilityEnableManualPagination,
-		metricsHandler)
+	var s store.VisibilityStore
+	switch pluginName {
+	case elasticsearch.PersistenceNamePartitioned:
+		s = elasticsearch.NewVisibilityStorePartitioned(
+			esClient,
+			defaultIndexName,
+			searchAttributesProvider,
+			searchAttributesMapperProvider,
+			namespaceRegistry,
+			esProcessor,
+			esProcessorAckTimeout,
+			visibilityDisableOrderByClause,
+			visibilityEnableManualPagination,
+			metricsHandler,
+		)
+	case elasticsearch.PersistenceNamePerNs:
+		s = elasticsearch.NewVisibilityStorePerNs(
+			esClient,
+			defaultIndexName,
+			searchAttributesProvider,
+			searchAttributesMapperProvider,
+			esProcessor,
+			esProcessorAckTimeout,
+			visibilityDisableOrderByClause,
+			visibilityEnableManualPagination,
+			metricsHandler,
+		)
+	default:
+		s = elasticsearch.NewVisibilityStore(
+			esClient,
+			defaultIndexName,
+			searchAttributesProvider,
+			searchAttributesMapperProvider,
+			esProcessor,
+			esProcessorAckTimeout,
+			visibilityDisableOrderByClause,
+			visibilityEnableManualPagination,
+			metricsHandler,
+		)
+	}
 	return s
 }
