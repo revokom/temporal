@@ -316,7 +316,8 @@ func (s *SliceImpl) ShrinkScope() {
 	s.shrinkRange()
 	s.shrinkPredicate()
 
-	// shrinkRange shrinks the executableTracker, which may remove tracked pending executables.
+	// shrinkRange shrinks the executableTracker, which may remove tracked pending executables. Set the
+	// pending task count to reflect that.
 	s.monitor.SetSlicePendingTaskCount(s, len(s.executableTracker.pendingExecutables))
 }
 
@@ -350,12 +351,11 @@ func (s *SliceImpl) shrinkPredicate() {
 	// TODO: this should be generic enough to shrink any predicate type, probably doesn't belong here.
 	pendingPerKey := s.executableTracker.pendingPerKey
 	if len(pendingPerKey) > shrinkPredicateMaxPendingKeys {
-		// only shrink predicate if there're few namespaces left
+		// only shrink predicate if there're few keys left
 		return
 	}
 
-	minimalPredicate := s.indexer.Predicate(maps.Keys(pendingPerKey))
-	s.scope.Predicate = tasks.AndPredicates(s.scope.Predicate, minimalPredicate)
+	s.scope.Predicate = s.grouper.Predicate(maps.Keys(pendingPerKey))
 }
 
 func (s *SliceImpl) SelectTasks(readerID int64, batchSize int) ([]Executable, error) {

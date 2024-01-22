@@ -27,24 +27,25 @@ import (
 	"go.temporal.io/server/service/history/tasks"
 )
 
-// TODO: document me
+// Grouper groups tasks and constructs predicates for those groups.
 type Grouper interface {
+	// Key returns the group key for a given task.
 	Key(task tasks.Task) (key any)
+	// Predicate constructs a prdicate from a slice of keys.
 	Predicate(keys []any) tasks.Predicate
 }
 
 type GrouperNamespaceID struct {
 }
 
-// Key implements Indexer.
 func (GrouperNamespaceID) Key(task tasks.Task) (key any) {
 	return task.GetNamespaceID()
 }
 
-// Predicate implements Indexer.
 func (GrouperNamespaceID) Predicate(keys []any) tasks.Predicate {
 	pendingNamespaceIDs := make([]string, len(keys))
 	for i, namespaceID := range keys {
+		// Assume predicate is only called with keys returned from GrouperNamespaceID.Key()
 		pendingNamespaceIDs[i] = namespaceID.(string)
 	}
 	return tasks.NewNamespacePredicate(pendingNamespaceIDs)
@@ -61,20 +62,20 @@ type namespaceIDAndDestination struct {
 type GrouperNamespaceIDAndDestination struct {
 }
 
-// Key implements Grouper.
 func (GrouperNamespaceIDAndDestination) Key(task tasks.Task) (key any) {
-	// Only CallbackTasks are supported for now.
-	cbTask := task.(tasks.HasDestination)
-	return namespaceIDAndDestination{task.GetNamespaceID(), cbTask.GetDestination()}
+	getter, ok := task.(tasks.HasDestination)
+	var dest string
+	if ok {
+		dest = getter.GetDestination()
+	}
+	return namespaceIDAndDestination{task.GetNamespaceID(), dest}
 }
 
-// Predicate implements Grouper.
 func (GrouperNamespaceIDAndDestination) Predicate(keys []any) tasks.Predicate {
 	pred := predicates.Empty[tasks.Task]()
 	for _, namespaceID := range keys {
-		// TODO: figure out panic here
+		// Assume predicate is only called with keys returned from GrouperNamespaceID.Key()
 		key := namespaceID.(namespaceIDAndDestination)
-		// We probably should just combine the two predicate implementations for better shrinking logic.
 		pred = predicates.Or(pred, predicates.And(
 			tasks.NewNamespacePredicate([]string{key.namespaceID}),
 			tasks.NewDestinationPredicate([]string{key.destination}),

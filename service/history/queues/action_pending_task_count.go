@@ -44,6 +44,7 @@ type (
 		attributes     *AlertAttributesQueuePendingTaskCount
 		monitor        Monitor
 		maxReaderCount int64
+		grouper        Grouper
 
 		// state of the action, used when running the action
 		tasksPerKey map[any]int
@@ -51,7 +52,6 @@ type (
 		pendingTasksPerKeyPerSlice map[Slice]map[any]int
 		slicesPerKey               map[any][]Slice
 		keysToClearPerSlice        map[Slice][]any
-		grouper                    Grouper
 	}
 )
 

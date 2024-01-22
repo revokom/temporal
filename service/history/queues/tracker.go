@@ -36,15 +36,15 @@ type (
 	// currently it's used as a implementation detail in SliceImpl
 	executableTracker struct {
 		pendingExecutables map[tasks.Key]Executable
-		indexer            Grouper
+		grouper            Grouper
 		pendingPerKey      map[any]int
 	}
 )
 
-func newExecutableTracker(indexer Grouper) *executableTracker {
+func newExecutableTracker(grouper Grouper) *executableTracker {
 	return &executableTracker{
 		pendingExecutables: make(map[tasks.Key]Executable),
-		indexer:            indexer,
+		grouper:            grouper,
 		pendingPerKey:      make(map[any]int, 0),
 	}
 }
@@ -55,7 +55,7 @@ func (t *executableTracker) split(
 ) (*executableTracker, *executableTracker) {
 	that := executableTracker{
 		pendingExecutables: make(map[tasks.Key]Executable, len(t.pendingExecutables)/2),
-		indexer:            t.indexer,
+		grouper:            t.grouper,
 		pendingPerKey:      make(map[any]int, len(t.pendingPerKey)),
 	}
 
@@ -72,7 +72,7 @@ func (t *executableTracker) split(
 		delete(t.pendingExecutables, key)
 		that.pendingExecutables[key] = executable
 
-		groupKey := t.indexer.Key(executable)
+		groupKey := t.grouper.Key(executable)
 		t.pendingPerKey[groupKey]--
 		that.pendingPerKey[groupKey]++
 	}
@@ -90,7 +90,7 @@ func (t *executableTracker) merge(incomingTracker *executableTracker) *executabl
 
 	for key, executable := range thatExecutables {
 		thisExecutables[key] = executable
-		key := t.indexer.Key(executable)
+		key := t.grouper.Key(executable)
 		thisPendingTasks[key]++
 	}
 	t.pendingExecutables = thisExecutables
@@ -102,7 +102,7 @@ func (t *executableTracker) add(
 	executable Executable,
 ) {
 	t.pendingExecutables[executable.GetKey()] = executable
-	key := t.indexer.Key(executable)
+	key := t.grouper.Key(executable)
 	t.pendingPerKey[key]++
 }
 
@@ -110,7 +110,7 @@ func (t *executableTracker) shrink() tasks.Key {
 	minPendingTaskKey := tasks.MaximumKey
 	for key, executable := range t.pendingExecutables {
 		if executable.State() == ctasks.TaskStateAcked {
-			t.pendingPerKey[t.indexer.Key(executable)]--
+			t.pendingPerKey[t.grouper.Key(executable)]--
 			delete(t.pendingExecutables, key)
 			continue
 		}
