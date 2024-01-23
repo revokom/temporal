@@ -60,6 +60,7 @@ type Config struct {
 	VisibilityDisableOrderByClause    dynamicconfig.BoolPropertyFnWithNamespaceFilter
 	VisibilityEnableManualPagination  dynamicconfig.BoolPropertyFnWithNamespaceFilter
 	VisibilityAllowList               dynamicconfig.BoolPropertyFnWithNamespaceFilter
+	VisibilityShadowReads             dynamicconfig.BoolPropertyFnWithNamespaceFilter
 
 	EmitShardLagLog            dynamicconfig.BoolPropertyFn
 	MaxAutoResetPoints         dynamicconfig.IntPropertyFnWithNamespaceFilter
@@ -351,6 +352,7 @@ func NewConfig(
 		VisibilityDisableOrderByClause:    dc.GetBoolPropertyFnWithNamespaceFilter(dynamicconfig.VisibilityDisableOrderByClause, true),
 		VisibilityEnableManualPagination:  dc.GetBoolPropertyFnWithNamespaceFilter(dynamicconfig.VisibilityEnableManualPagination, true),
 		VisibilityAllowList:               dc.GetBoolPropertyFnWithNamespaceFilter(dynamicconfig.VisibilityAllowList, true),
+		VisibilityShadowReads:             dc.GetBoolPropertyFnWithNamespaceFilter(dynamicconfig.VisibilityShadowReads, false),
 
 		EmitShardLagLog:                       dc.GetBoolProperty(dynamicconfig.EmitShardLagLog, false),
 		HistoryCacheInitialSize:               dc.GetIntProperty(dynamicconfig.HistoryCacheInitialSize, 128),

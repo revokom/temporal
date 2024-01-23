@@ -39,6 +39,7 @@ import (
 type (
 	managerSelector interface {
 		readManager(nsName namespace.Name) manager.VisibilityManager
+		readManagers(nsName namespace.Name) []manager.VisibilityManager
 		writeManagers() ([]manager.VisibilityManager, error)
 	}
 
@@ -83,8 +84,18 @@ func (v *defaultManagerSelector) writeManagers() ([]manager.VisibilityManager, e
 }
 
 func (v *defaultManagerSelector) readManager(nsName namespace.Name) manager.VisibilityManager {
+	return v.readManagers(nsName)[0]
+}
+
+func (v *defaultManagerSelector) readManagers(nsName namespace.Name) []manager.VisibilityManager {
 	if v.enableReadFromSecondaryVisibility(nsName.String()) {
-		return v.secondaryVisibilityManager
+		return []manager.VisibilityManager{
+			v.secondaryVisibilityManager,
+			v.visibilityManager,
+		}
 	}
-	return v.visibilityManager
+	return []manager.VisibilityManager{
+		v.visibilityManager,
+		v.secondaryVisibilityManager,
+	}
 }

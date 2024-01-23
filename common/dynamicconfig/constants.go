@@ -52,6 +52,8 @@ const (
 	VisibilityEnableManualPagination = "system.visibilityEnableManualPagination"
 	// VisibilityAllowList is the config to allow list of values for regular types
 	VisibilityAllowList = "system.visibilityAllowList"
+	// VisibilityShadowReads is the config to send shadow read requests to secondary read visibility
+	VisibilityShadowReads = "system.visibilityShadowReads"
 
 	// HistoryArchivalState is key for the state of history archival
 	HistoryArchivalState = "system.historyArchivalState"

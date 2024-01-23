@@ -71,6 +71,7 @@ func NewManager(
 	secondaryVisibilityWritingMode dynamicconfig.StringPropertyFn,
 	visibilityDisableOrderByClause dynamicconfig.BoolPropertyFnWithNamespaceFilter,
 	visibilityEnableManualPagination dynamicconfig.BoolPropertyFnWithNamespaceFilter,
+	visibilityShadowReads dynamicconfig.BoolPropertyFnWithNamespaceFilter,
 
 	metricsHandler metrics.Handler,
 	logger log.Logger,
@@ -145,6 +146,7 @@ func NewManager(
 			visibilityManager,
 			secondaryVisibilityManager,
 			managerSelector,
+			visibilityShadowReads,
 		), nil
 	}
 

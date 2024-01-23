@@ -230,6 +230,7 @@ func (s *operatorHandlerSuite) Test_AddSearchAttributes_DualVisibility() {
 		mockVisManager1,
 		mockVisManager2,
 		mockManagerSelector,
+		dynamicconfig.GetBoolPropertyFnFilteredByNamespace(false),
 	)
 	s.handler.visibilityMgr = mockDualVisManager
 

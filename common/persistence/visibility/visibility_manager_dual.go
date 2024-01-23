@@ -26,20 +26,36 @@ package visibility
 
 import (
 	"context"
+	"time"
 
+	"go.temporal.io/server/common/dynamicconfig"
 	"go.temporal.io/server/common/namespace"
 	"go.temporal.io/server/common/persistence/visibility/manager"
 )
 
 type (
+	readApiRequest interface {
+		*manager.ListWorkflowExecutionsRequest |
+			*manager.ListWorkflowExecutionsByTypeRequest |
+			*manager.ListWorkflowExecutionsByWorkflowIDRequest |
+			*manager.ListClosedWorkflowExecutionsByStatusRequest |
+			*manager.ListWorkflowExecutionsRequestV2 |
+			*manager.CountWorkflowExecutionsRequest |
+			*manager.GetWorkflowExecutionRequest
+	}
+
 	VisibilityManagerDual struct {
 		visibilityManager          manager.VisibilityManager
 		secondaryVisibilityManager manager.VisibilityManager
 		managerSelector            managerSelector
+
+		shadowReads dynamicconfig.BoolPropertyFnWithNamespaceFilter
 	}
 )
 
 var _ manager.VisibilityManager = (*VisibilityManagerDual)(nil)
+
+const shadowRequestTimeout = 5 * time.Second
 
 // NewVisibilityManagerDual create a visibility manager that operate on multiple manager
 // implementations based on dynamic config.
@@ -47,11 +63,14 @@ func NewVisibilityManagerDual(
 	visibilityManager manager.VisibilityManager,
 	secondaryVisibilityManager manager.VisibilityManager,
 	managerSelector managerSelector,
+	shadowReads dynamicconfig.BoolPropertyFnWithNamespaceFilter,
 ) *VisibilityManagerDual {
 	return &VisibilityManagerDual{
 		visibilityManager:          visibilityManager,
 		secondaryVisibilityManager: secondaryVisibilityManager,
 		managerSelector:            managerSelector,
+
+		shadowReads: shadowReads,
 	}
 }
 
@@ -177,75 +196,139 @@ func (v *VisibilityManagerDual) ListOpenWorkflowExecutions(
 	ctx context.Context,
 	request *manager.ListWorkflowExecutionsRequest,
 ) (*manager.ListWorkflowExecutionsResponse, error) {
-	return v.managerSelector.readManager(request.Namespace).ListOpenWorkflowExecutions(ctx, request)
+	ms := v.managerSelector.readManagers(request.Namespace)
+	resp, err := ms[0].ListOpenWorkflowExecutions(ctx, request)
+	if len(ms) > 1 && v.shadowReads(request.Namespace.String()) {
+		go sendShadowRequest(ms[1].ListOpenWorkflowExecutions, request)
+	}
+	return resp, err
 }
 
 func (v *VisibilityManagerDual) ListClosedWorkflowExecutions(
 	ctx context.Context,
 	request *manager.ListWorkflowExecutionsRequest,
 ) (*manager.ListWorkflowExecutionsResponse, error) {
-	return v.managerSelector.readManager(request.Namespace).ListClosedWorkflowExecutions(ctx, request)
+	ms := v.managerSelector.readManagers(request.Namespace)
+	resp, err := ms[0].ListClosedWorkflowExecutions(ctx, request)
+	if len(ms) > 1 && v.shadowReads(request.Namespace.String()) {
+		go sendShadowRequest(ms[1].ListClosedWorkflowExecutions, request)
+	}
+	return resp, err
 }
 
 func (v *VisibilityManagerDual) ListOpenWorkflowExecutionsByType(
 	ctx context.Context,
 	request *manager.ListWorkflowExecutionsByTypeRequest,
 ) (*manager.ListWorkflowExecutionsResponse, error) {
-	return v.managerSelector.readManager(request.Namespace).ListOpenWorkflowExecutionsByType(ctx, request)
+	ms := v.managerSelector.readManagers(request.Namespace)
+	resp, err := ms[0].ListOpenWorkflowExecutionsByType(ctx, request)
+	if len(ms) > 1 && v.shadowReads(request.Namespace.String()) {
+		go sendShadowRequest(ms[1].ListOpenWorkflowExecutionsByType, request)
+	}
+	return resp, err
 }
 
 func (v *VisibilityManagerDual) ListClosedWorkflowExecutionsByType(
 	ctx context.Context,
 	request *manager.ListWorkflowExecutionsByTypeRequest,
 ) (*manager.ListWorkflowExecutionsResponse, error) {
-	return v.managerSelector.readManager(request.Namespace).ListClosedWorkflowExecutionsByType(ctx, request)
+	ms := v.managerSelector.readManagers(request.Namespace)
+	resp, err := ms[0].ListClosedWorkflowExecutionsByType(ctx, request)
+	if len(ms) > 1 && v.shadowReads(request.Namespace.String()) {
+		go sendShadowRequest(ms[1].ListClosedWorkflowExecutionsByType, request)
+	}
+	return resp, err
 }
 
 func (v *VisibilityManagerDual) ListOpenWorkflowExecutionsByWorkflowID(
 	ctx context.Context,
 	request *manager.ListWorkflowExecutionsByWorkflowIDRequest,
 ) (*manager.ListWorkflowExecutionsResponse, error) {
-	return v.managerSelector.readManager(request.Namespace).ListOpenWorkflowExecutionsByWorkflowID(ctx, request)
+	ms := v.managerSelector.readManagers(request.Namespace)
+	resp, err := ms[0].ListOpenWorkflowExecutionsByWorkflowID(ctx, request)
+	if len(ms) > 1 && v.shadowReads(request.Namespace.String()) {
+		go sendShadowRequest(ms[1].ListOpenWorkflowExecutionsByWorkflowID, request)
+	}
+	return resp, err
 }
 
 func (v *VisibilityManagerDual) ListClosedWorkflowExecutionsByWorkflowID(
 	ctx context.Context,
 	request *manager.ListWorkflowExecutionsByWorkflowIDRequest,
 ) (*manager.ListWorkflowExecutionsResponse, error) {
-	return v.managerSelector.readManager(request.Namespace).ListClosedWorkflowExecutionsByWorkflowID(ctx, request)
+	ms := v.managerSelector.readManagers(request.Namespace)
+	resp, err := ms[0].ListClosedWorkflowExecutionsByWorkflowID(ctx, request)
+	if len(ms) > 1 && v.shadowReads(request.Namespace.String()) {
+		go sendShadowRequest(ms[1].ListClosedWorkflowExecutionsByWorkflowID, request)
+	}
+	return resp, err
 }
 
 func (v *VisibilityManagerDual) ListClosedWorkflowExecutionsByStatus(
 	ctx context.Context,
 	request *manager.ListClosedWorkflowExecutionsByStatusRequest,
 ) (*manager.ListWorkflowExecutionsResponse, error) {
-	return v.managerSelector.readManager(request.Namespace).ListClosedWorkflowExecutionsByStatus(ctx, request)
+	ms := v.managerSelector.readManagers(request.Namespace)
+	resp, err := ms[0].ListClosedWorkflowExecutionsByStatus(ctx, request)
+	if len(ms) > 1 && v.shadowReads(request.Namespace.String()) {
+		go sendShadowRequest(ms[1].ListClosedWorkflowExecutionsByStatus, request)
+	}
+	return resp, err
 }
 
 func (v *VisibilityManagerDual) ListWorkflowExecutions(
 	ctx context.Context,
 	request *manager.ListWorkflowExecutionsRequestV2,
 ) (*manager.ListWorkflowExecutionsResponse, error) {
-	return v.managerSelector.readManager(request.Namespace).ListWorkflowExecutions(ctx, request)
+	ms := v.managerSelector.readManagers(request.Namespace)
+	resp, err := ms[0].ListWorkflowExecutions(ctx, request)
+	if len(ms) > 1 && v.shadowReads(request.Namespace.String()) {
+		go sendShadowRequest(ms[1].ListWorkflowExecutions, request)
+	}
+	return resp, err
 }
 
 func (v *VisibilityManagerDual) ScanWorkflowExecutions(
 	ctx context.Context,
 	request *manager.ListWorkflowExecutionsRequestV2,
 ) (*manager.ListWorkflowExecutionsResponse, error) {
-	return v.managerSelector.readManager(request.Namespace).ScanWorkflowExecutions(ctx, request)
+	ms := v.managerSelector.readManagers(request.Namespace)
+	resp, err := ms[0].ScanWorkflowExecutions(ctx, request)
+	if len(ms) > 1 && v.shadowReads(request.Namespace.String()) {
+		go sendShadowRequest(ms[1].ScanWorkflowExecutions, request)
+	}
+	return resp, err
 }
 
 func (v *VisibilityManagerDual) CountWorkflowExecutions(
 	ctx context.Context,
 	request *manager.CountWorkflowExecutionsRequest,
 ) (*manager.CountWorkflowExecutionsResponse, error) {
-	return v.managerSelector.readManager(request.Namespace).CountWorkflowExecutions(ctx, request)
+	ms := v.managerSelector.readManagers(request.Namespace)
+	resp, err := ms[0].CountWorkflowExecutions(ctx, request)
+	if len(ms) > 1 && v.shadowReads(request.Namespace.String()) {
+		go sendShadowRequest(ms[1].CountWorkflowExecutions, request)
+	}
+	return resp, err
 }
 
 func (v *VisibilityManagerDual) GetWorkflowExecution(
 	ctx context.Context,
 	request *manager.GetWorkflowExecutionRequest,
 ) (*manager.GetWorkflowExecutionResponse, error) {
-	return v.managerSelector.readManager(request.Namespace).GetWorkflowExecution(ctx, request)
+	ms := v.managerSelector.readManagers(request.Namespace)
+	resp, err := ms[0].GetWorkflowExecution(ctx, request)
+	if len(ms) > 1 && v.shadowReads(request.Namespace.String()) {
+		go sendShadowRequest(ms[1].GetWorkflowExecution, request)
+	}
+	return resp, err
+}
+
+func sendShadowRequest[Request readApiRequest, Response any](
+	fn func(context.Context, Request) (Response, error),
+	request Request,
+) {
+	ctx, cancel := context.WithTimeout(context.Background(), shadowRequestTimeout)
+	defer cancel()
+	_, _ = fn(ctx, request)
 }
