@@ -32,6 +32,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"go.temporal.io/server/api/enums/v1"
 	"go.temporal.io/server/common"
 	"go.temporal.io/server/common/backoff"
 	"go.temporal.io/server/common/clock"
@@ -41,6 +42,7 @@ import (
 	"go.temporal.io/server/common/metrics"
 	"go.temporal.io/server/common/persistence"
 	"go.temporal.io/server/common/quotas"
+	tasks2 "go.temporal.io/server/service/history/tasks"
 )
 
 var (
@@ -479,6 +481,12 @@ func (r *ReaderImpl) loadAndSubmitTasks() {
 
 	if len(tasks) != 0 {
 		for _, task := range tasks {
+			// TODO: find a better way of doing this
+			if task.GetType() == enums.TASK_TYPE_CALLBACK {
+				metrics.QueueReaderID.With(r.metricsHandler).Record(float64(r.readerID),
+					metrics.StringTag("address", task.GetTask().(*tasks2.CallbackTask).DestinationAddress),
+				)
+			}
 			r.submit(task)
 		}
 		r.monitor.SetReaderWatermark(r.readerID, tasks[len(tasks)-1].GetKey())
