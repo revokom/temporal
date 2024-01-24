@@ -797,6 +797,7 @@ var (
 	TaskSchedulerThrottled      = NewCounterDef("task_scheduler_throttled")
 	QueueScheduleLatency        = NewTimerDef("queue_latency_schedule") // latency for scheduling 100 tasks in one task channel
 	QueueReaderCountHistogram   = NewDimensionlessHistogramDef("queue_reader_count")
+	QueueReaderCountGauge       = NewGaugeDef("queue_reader_count_v2")
 	QueueSliceCountHistogram    = NewDimensionlessHistogramDef("queue_slice_count")
 	QueueActionCounter          = NewCounterDef("queue_actions")
 	QueueActionFailures         = NewCounterDef("queue_action_errors")

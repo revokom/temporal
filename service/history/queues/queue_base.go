@@ -349,6 +349,7 @@ func (p *queueBase) checkpoint() {
 		}
 	}
 	metrics.QueueReaderCountHistogram.With(p.metricsHandler).Record(int64(len(readerScopes)))
+	metrics.QueueReaderCountGauge.With(p.metricsHandler).Record(float64(len(readerScopes)))
 	metrics.QueueSliceCountHistogram.With(p.metricsHandler).Record(int64(p.monitor.GetTotalSliceCount()))
 	metrics.PendingTasksCounter.With(p.metricsHandler).Record(int64(p.monitor.GetTotalPendingTaskCount()))
 
