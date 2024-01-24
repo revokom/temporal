@@ -25,6 +25,7 @@
 package queues
 
 import (
+	"fmt"
 	"time"
 
 	"golang.org/x/exp/slices"
@@ -174,6 +175,8 @@ func (a *actionQueuePendingTask) findSliceToClear(
 		if a.tasksPerKey[key] > 0 {
 			pq.Add(key)
 		}
+
+		fmt.Printf("Slicing key %+v\n", key)
 
 		a.keysToClearPerSlice[sliceToClear] = append(a.keysToClearPerSlice[sliceToClear], key)
 	}
