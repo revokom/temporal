@@ -180,8 +180,6 @@ func (r *ReaderImpl) Start() {
 	go r.eventLoop()
 
 	r.notify()
-
-	r.logger.Info("queue reader started", tag.LifeCycleStarted)
 }
 
 func (r *ReaderImpl) Stop() {
@@ -200,7 +198,6 @@ func (r *ReaderImpl) Stop() {
 	if success := common.AwaitWaitGroup(&r.shutdownWG, time.Minute); !success {
 		r.logger.Warn("queue reader shutdown timed out waiting for event loop", tag.LifeCycleStopTimedout)
 	}
-	r.logger.Info("queue reader stopped", tag.LifeCycleStopped)
 }
 
 func (r *ReaderImpl) Scopes() []Scope {
