@@ -483,7 +483,8 @@ func (r *ReaderImpl) loadAndSubmitTasks() {
 		for _, task := range tasks {
 			// TODO: find a better way of doing this
 			if task.GetType() == enums.TASK_TYPE_CALLBACK {
-				metrics.QueueReaderID.With(r.metricsHandler).Record(float64(r.readerID),
+				metrics.QueueSubmissionsCounter.With(r.metricsHandler).Record(1,
+					metrics.QueueReaderIDTag(r.readerID),
 					metrics.StringTag("address", task.GetTask().(*tasks2.CallbackTask).DestinationAddress),
 				)
 			}
