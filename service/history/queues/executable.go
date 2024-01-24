@@ -285,7 +285,9 @@ func (e *executableImpl) Execute() (retErr error) {
 	}
 
 	resp := e.executor.Execute(ctx, e)
-	e.taggedMetricsHandler = e.metricsHandler.WithTags(resp.ExecutionMetricTags...)
+	tags := []metrics.Tag{metrics.StringTag("address", "")}
+	tags = append(tags, resp.ExecutionMetricTags...)
+	e.taggedMetricsHandler = e.metricsHandler.WithTags(tags...)
 
 	if resp.ExecutedAsActive != e.lastActiveness {
 		// namespace did a failover,

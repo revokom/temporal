@@ -115,6 +115,7 @@ func (t *callbackQueueActiveTaskExecutor) Execute(
 				Timer("callback_schedule_to_start_latency").Record(elapsed)
 		}
 		err = t.processCallbackTask(ctx, task)
+		metricsTags = append(metricsTags, metrics.StringTag("address", task.DestinationAddress))
 	default:
 		err = errUnknownTransferTask
 	}
