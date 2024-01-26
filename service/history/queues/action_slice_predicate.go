@@ -82,18 +82,18 @@ func (a *slicePredicateAction) Run(readerGroup *ReaderGroup) error {
 
 	sliceCount := a.monitor.GetSliceCount(DefaultReaderId)
 	pendingTasks := 0
-	hasNonUniversalPredicate := false
+	hasUniversalPredicate := false
 	reader.WalkSlices(func(s Slice) {
 		pendingTasks += a.monitor.GetSlicePendingTaskCount(s)
 
-		if !tasks.IsUniverisalPredicate(s.Scope().Predicate) {
-			hasNonUniversalPredicate = true
+		if tasks.IsUniverisalPredicate(s.Scope().Predicate) {
+			hasUniversalPredicate = true
 		}
 	})
 
 	// only move slices when either default reader slice count or
 	// pending task count is high
-	if !hasNonUniversalPredicate ||
+	if hasUniversalPredicate ||
 		(pendingTasks < moveSliceDefaultReaderMinPendingTaskCount &&
 			sliceCount < moveSliceDefaultReaderMinSliceCount) {
 		return nil

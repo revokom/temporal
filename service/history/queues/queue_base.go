@@ -167,7 +167,7 @@ func newQueueBase(
 			// otherwise those readers will keep loading, hit pending task count limit, unload, throttle, load, etc...
 			// use a limit lower than the critical pending task count instead
 			readerOptions.MaxPendingTasksCount = func() int {
-				return int(float64(options.PendingTasksCriticalCount()) * nonDefaultReaderMaxPendingTaskCoefficient)
+				return int(float64(options.PendingTasksCriticalCount())) //* nonDefaultReaderMaxPendingTaskCoefficient)
 			}
 		}
 
