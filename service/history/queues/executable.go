@@ -204,6 +204,7 @@ func NewExecutable(
 
 func (e *executableImpl) Execute() (retErr error) {
 
+	e.logger.Info("Load task to process")
 	startTime := e.timeSource.Now()
 	e.scheduleLatency = startTime.Sub(e.scheduledTime)
 

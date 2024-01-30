@@ -149,6 +149,7 @@ func (t *timerQueueActiveTaskExecutor) executeUserTimerTimeoutTask(
 	ctx, cancel := context.WithTimeout(ctx, taskTimeout)
 	defer cancel()
 
+	t.logger.Info("Executing user timer task", getTaskLoggerTags(task)...)
 	weContext, release, err := getWorkflowExecutionContextForTask(ctx, t.shardContext, t.cache, task)
 	if err != nil {
 		return err
@@ -160,6 +161,7 @@ func (t *timerQueueActiveTaskExecutor) executeUserTimerTimeoutTask(
 		return err
 	}
 	if mutableState == nil {
+		t.logger.Info("Executing user timer task, mutable state not found", getTaskLoggerTags(task)...)
 		release(nil) // release(nil) so mutable state is not unloaded from cache
 		return consts.ErrWorkflowExecutionNotFound
 	}
@@ -185,6 +187,7 @@ Loop:
 		}
 
 		if !mutableState.IsWorkflowExecutionRunning() {
+			t.logger.Info("Executing user timer task, workflow is closed", getTaskLoggerTags(task)...)
 			release(nil) // so mutable state is not unloaded from cache
 			return consts.ErrWorkflowCompleted
 		}
@@ -196,11 +199,14 @@ Loop:
 	}
 
 	if !timerFired {
+		t.logger.Info("Executing user timer task, timer is not ready", getTaskLoggerTags(task)...)
 		release(nil) // so mutable state is not unloaded from cache
 		return errNoTimerFired
 	}
 
-	return t.updateWorkflowExecution(ctx, weContext, mutableState, timerFired)
+	err = t.updateWorkflowExecution(ctx, weContext, mutableState, timerFired)
+	t.logger.Info("Executed user timer task", getTaskLoggerTags(task)...)
+	return err
 }
 
 func (t *timerQueueActiveTaskExecutor) executeActivityTimeoutTask(
@@ -678,4 +684,8 @@ func (t *timerQueueActiveTaskExecutor) emitTimeoutMetricScopeWithNamespaceTag(
 	case enumspb.TIMEOUT_TYPE_HEARTBEAT:
 		metricsScope.Counter(metrics.HeartbeatTimeoutCounter.Name()).Record(1)
 	}
+}
+
+func getTaskLoggerTags(task tasks.Task) []tag.Tag {
+	return tasks.Tags(task)
 }

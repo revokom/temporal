@@ -154,6 +154,7 @@ func (t *timerQueueStandbyTaskExecutor) executeUserTimerTimeoutTask(
 			// all user timers after that timer are not expired.
 		}
 		// If there is no user timer expired, then we are good.
+		t.logger.Info("Standby no user timer expired", getTaskLoggerTags(timerTask)...)
 		return nil, nil
 	}
 
