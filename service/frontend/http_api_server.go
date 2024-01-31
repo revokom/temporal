@@ -25,10 +25,13 @@
 package frontend
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"reflect"
@@ -43,6 +46,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 
+	"go.temporal.io/api/openapi"
 	"go.temporal.io/api/serviceerror"
 	"go.temporal.io/api/workflowservice/v1"
 	"go.temporal.io/server/common/config"
@@ -167,6 +171,9 @@ func NewHTTPAPIServer(
 	if err != nil {
 		return nil, fmt.Errorf("failed registering HTTP API handler: %w", err)
 	}
+
+	h.registerOpenAPIDocsHandlers()
+
 	// Set the handler as our function that wraps serve mux
 	h.server.Handler = http.HandlerFunc(h.serveHTTP)
 
@@ -300,6 +307,28 @@ func (h *HTTPAPIServer) incomingHeaderMatcher(headerName string) (string, bool) 
 		return headerName, true
 	}
 	return runtime.DefaultHeaderMatcher(headerName)
+}
+
+func (h *HTTPAPIServer) registerOpenAPIDocsHandlers() {
+	serve := func(version int, spec []byte) func(http.ResponseWriter, *http.Request, map[string]string) {
+		return func(w http.ResponseWriter, _ *http.Request, _ map[string]string) {
+			rdr, err := gzip.NewReader(bytes.NewReader(spec))
+			if err != nil {
+				h.logger.Error("failed to initialize openapi spec reader", tag.NewInt("version", version), tag.Error(err))
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			if _, err := io.Copy(w, rdr); err != nil {
+				h.logger.Error("failed to send openapi spec", tag.NewInt("version", version), tag.Error(err))
+			}
+			if err := rdr.Close(); err != nil {
+				h.logger.Error("failed to verify openapi spec checksum", tag.NewInt("version", version), tag.Error(err))
+			}
+		}
+	}
+	h.serveMux.HandlePath(http.MethodGet, "/api/v1/openapi.yaml", serve(3, openapi.OpenAPIv3Spec))
+
+	h.serveMux.HandlePath(http.MethodGet, "/api/v1/swagger.json", serve(2, openapi.OpenAPIv2Spec))
 }
 
 // inlineClientConn is a [grpc.ClientConnInterface] implementation that forwards
