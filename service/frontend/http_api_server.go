@@ -46,8 +46,8 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 
-	"go.temporal.io/api/openapi"
 	"go.temporal.io/api/serviceerror"
+	"go.temporal.io/api/temporalproto/openapi"
 	"go.temporal.io/api/workflowservice/v1"
 	"go.temporal.io/server/common/config"
 	"go.temporal.io/server/common/headers"
@@ -326,9 +326,9 @@ func (h *HTTPAPIServer) registerOpenAPIDocsHandlers() {
 			}
 		}
 	}
-	h.serveMux.HandlePath(http.MethodGet, "/api/v1/openapi.yaml", serve(3, openapi.OpenAPIv3Spec))
+	h.serveMux.HandlePath(http.MethodGet, "/api/v1/openapi.yaml", serve(3, openapi.OpenAPIV3YAMLSpec))
 
-	h.serveMux.HandlePath(http.MethodGet, "/api/v1/swagger.json", serve(2, openapi.OpenAPIv2Spec))
+	h.serveMux.HandlePath(http.MethodGet, "/api/v1/swagger.json", serve(2, openapi.OpenAPIV2JSONSpec))
 }
 
 // inlineClientConn is a [grpc.ClientConnInterface] implementation that forwards
