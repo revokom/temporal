@@ -56,7 +56,6 @@ type (
 		// Find finds an existing update in this Registry but does not create a
 		// new update if no update is found.
 		Find(ctx context.Context, protocolInstanceID string) (*Update, bool)
-		// TODO: isn't the return `bool` always true when the *Update != nil?
 
 		// HasOutgoingMessages returns true if the registry has any Updates
 		// for which outgoing message can be generated.
@@ -161,6 +160,15 @@ func NewRegistry(
 
 	getStoreFn().VisitUpdates(func(updID string, updInfo *updatespb.UpdateInfo) {
 		// need to eager load here so that Len and admit are correct.
+		if req := updInfo.GetRequest(); req != nil {
+			// TODO (dan): how are we making use of the event batch ID?
+			r.updates[updID] = newRequested(
+				updID,
+				nil,              // TODO(dan) at this point we have the event ID but don't have ready access to the request
+				r.remover(updID), // TODO (dan): check this is appropriate for Requested
+				withInstrumentation(&r.instrumentation),
+			)
+		}
 		if acc := updInfo.GetAcceptance(); acc != nil {
 			r.updates[updID] = newAccepted(
 				updID,
@@ -260,6 +268,7 @@ func (r *registry) Send(
 	workflowTaskStartedEventID int64,
 	eventStore EventStore,
 ) []*protocolpb.Message {
+
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
@@ -321,8 +330,8 @@ func (r *registry) findLocked(ctx context.Context, id string) (*Update, bool) {
 		return upd, true
 	}
 
-	// update not found in ephemeral state, but could have already completed so
-	// check in registry storage
+	// Update not found in ephemeral state, but could have already completed so check registry
+	// storage.
 	updOutcome, err := r.getStoreFn().GetUpdateOutcome(ctx, id)
 
 	// Swallow NotFound error because it means that update doesn't exist.

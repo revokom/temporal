@@ -117,16 +117,12 @@ func Invoke(
 				return nil, serviceerror.NewWorkflowNotReady("Unable to perform workflow execution update due to Workflow Task in failed state.")
 			}
 
-			updateID := req.GetRequest().GetRequest().GetMeta().GetUpdateId()
-			updateReg := workflowLease.GetContext().UpdateRegistry(ctx)
 			var (
 				alreadyExisted bool
 				err            error
 			)
-			if upd, alreadyExisted, err = updateReg.FindOrCreate(ctx, updateID); err != nil {
-				return nil, err
-			}
-			if err = upd.Request(ctx, req.GetRequest().GetRequest(), workflow.WithEffects(effect.Immediate(ctx), ms)); err != nil {
+			upd, alreadyExisted, err = RequestUpdate(ctx, req.GetRequest().GetRequest(), workflowLease.GetContext().UpdateRegistry(ctx), ms)
+			if err != nil {
 				return nil, err
 			}
 
@@ -162,8 +158,9 @@ func Invoke(
 				return nil, err
 			}
 			if newWorkflowTask.Type != enumsspb.WORKFLOW_TASK_TYPE_SPECULATIVE {
-				// This should never happen because WT is created as normal (despite speculative is requested)
-				// only if there were buffered events and because there were no pending WT, there can't be buffered events.
+				// This means that a normal WFT was created despite a speculative WFT having been
+				// requested. It implies that there were buffered events. But because there was no
+				// pending WFT, there can't be buffered events. Therefore this should never happen.
 				return nil, consts.ErrWorkflowTaskStateInconsistent
 			}
 
@@ -315,4 +312,23 @@ func createResponse(
 			Stage:   stage,
 		},
 	}
+}
+
+// RequestUpdate ensures that an entry exists in the update registry for the requested update id,
+// and advances the update state machine.
+func RequestUpdate(
+	ctx context.Context,
+	request *updatepb.Request,
+	updateReg update.Registry,
+	mutableState workflow.MutableState,
+) (*update.Update, bool, error) {
+	updateID := request.GetMeta().GetUpdateId()
+	upd, alreadyExisted, err := updateReg.FindOrCreate(ctx, updateID)
+	if err != nil {
+		return nil, false, err
+	}
+	if err = upd.Request(ctx, request, workflow.WithEffects(effect.Immediate(ctx), mutableState)); err != nil {
+		return nil, false, err
+	}
+	return upd, alreadyExisted, nil
 }

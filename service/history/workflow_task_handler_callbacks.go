@@ -28,6 +28,7 @@ import (
 	"context"
 	"fmt"
 
+	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	commandpb "go.temporal.io/api/command/v1"
@@ -189,6 +190,7 @@ func (handler *workflowTaskHandlerCallbacksImpl) handleWorkflowTaskStarted(
 
 	var workflowKey definition.WorkflowKey
 	var resp *historyservice.RecordWorkflowTaskStartedResponse
+	var updateRegistry update.Registry
 
 	err = api.GetAndUpdateWorkflowWithNew(
 		ctx,
@@ -201,6 +203,7 @@ func (handler *workflowTaskHandlerCallbacksImpl) handleWorkflowTaskStarted(
 		),
 		func(workflowLease api.WorkflowLease) (*api.UpdateWorkflowAction, error) {
 			mutableState := workflowLease.GetMutableState()
+			updateRegistry = workflowLease.GetContext().UpdateRegistry(ctx)
 			if !mutableState.IsWorkflowExecutionRunning() {
 				return nil, consts.ErrWorkflowCompleted
 			}
@@ -231,7 +234,7 @@ func (handler *workflowTaskHandlerCallbacksImpl) handleWorkflowTaskStarted(
 			if workflowTask.StartedEventID != common.EmptyEventID {
 				// If workflow task is started as part of the current request scope then return a positive response
 				if workflowTask.RequestID == requestID {
-					resp, err = handler.createRecordWorkflowTaskStartedResponse(ctx, mutableState, workflowLease.GetContext().UpdateRegistry(ctx), workflowTask, req.PollRequest.GetIdentity(), false)
+					resp, err = handler.createRecordWorkflowTaskStartedResponse(ctx, mutableState, updateRegistry, workflowTask, req.PollRequest.GetIdentity(), false)
 					if err != nil {
 						return nil, err
 					}
@@ -287,7 +290,7 @@ func (handler *workflowTaskHandlerCallbacksImpl) handleWorkflowTaskStarted(
 				metrics.TaskQueueTypeTag(enumspb.TASK_QUEUE_TYPE_WORKFLOW),
 			)
 
-			resp, err = handler.createRecordWorkflowTaskStartedResponse(ctx, mutableState, workflowLease.GetContext().UpdateRegistry(ctx), workflowTask, req.PollRequest.GetIdentity(), false)
+			resp, err = handler.createRecordWorkflowTaskStartedResponse(ctx, mutableState, updateRegistry, workflowTask, req.PollRequest.GetIdentity(), false)
 			if err != nil {
 				return nil, err
 			}
@@ -306,11 +309,62 @@ func (handler *workflowTaskHandlerCallbacksImpl) handleWorkflowTaskStarted(
 	if dynamicconfig.AccessHistory(handler.config.FrontendAccessHistoryFraction, handler.metricsHandler.WithTags(metrics.OperationTag(metrics.HistoryHandleWorkflowTaskStartedTag))) {
 		maxHistoryPageSize := int32(handler.config.HistoryMaxPageSize(namespaceEntry.Name().String()))
 		err = handler.setHistoryForRecordWfTaskStartedResp(ctx, workflowKey, maxHistoryPageSize, resp)
+		if err != nil {
+			return nil, err
+		}
+		err = handler.setUpdateRequests(ctx, resp.History, updateRegistry, resp.Messages)
 	}
 	if err != nil {
 		return nil, err
 	}
 	return resp, nil
+}
+
+// setUpdateRequests takes update request payloads read from history and stores them in two places:
+//  1. On the corresponding update entry in the registry. They will be missing here if the registry was created from
+//     mutable state, since the request payloads are not in Mutable State
+//  2. As the body of the corresponding update protocol message. They may be missing here, because the protocol message was
+//     created from the entry in the update registry.
+func (handler *workflowTaskHandlerCallbacksImpl) setUpdateRequests(
+	ctx context.Context,
+	history *historypb.History,
+	updateRegistry update.Registry,
+	messages []*protocolpb.Message,
+) error {
+	// TODO (dan): proof-of-concept: if we retain this logic it needs to be made stricter (e.g. handle possibility that
+	// multiple REQUESTED events exists with the same updateId) and more efficient (linear time complexity).
+	for _, e := range history.Events {
+		if e.EventType == enumspb.EVENT_TYPE_WORKFLOW_EXECUTION_UPDATE_REQUESTED {
+			attr := e.GetWorkflowExecutionUpdateRequestedEventAttributes()
+			for _, m := range messages {
+				// TODO (dan) we cannot do protocol.Identify(m) to identify the protocol type because the message body
+				// is nil. The body is nil because the update request is in history and not MS and hence was not
+				// available when the update registry was created.
+
+				// protocolType, _, err := protocol.Identify(m)
+
+				// TODO (dan) why did the RPC from Matching not find an existing registry? I am currently testing a
+				// simple reset scenario and I would expect the registry to be populated by the ResetWorkflow RPC to
+				// History and then found by the RecordWorkflowTaskStarted RPC from Matching. Nevertheless, I believe
+				// that we do need to handle the case where the registry is not in memory, and therefore the request
+				// payload must be obtained from history.
+
+				if attr.GetRequest().GetMeta().UpdateId == m.ProtocolInstanceId {
+					reqAny, err := anypb.New(attr.GetRequest())
+					if err != nil {
+						return err
+					}
+					m.Body = reqAny
+					upd, ok := updateRegistry.Find(ctx, m.ProtocolInstanceId)
+					if !ok {
+						return serviceerror.NewInternal(fmt.Sprintf("update %s does not exist in registry", m.ProtocolInstanceId))
+					}
+					upd.SetRequest(reqAny)
+				}
+			}
+		}
+	}
+	return nil
 }
 
 func (handler *workflowTaskHandlerCallbacksImpl) handleWorkflowTaskFailed(

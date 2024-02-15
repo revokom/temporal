@@ -53,10 +53,11 @@ import (
 	"go.temporal.io/server/service/history/shard"
 	"go.temporal.io/server/service/history/workflow"
 	wcache "go.temporal.io/server/service/history/workflow/cache"
+	"go.temporal.io/server/service/history/workflow/update"
 )
 
 type (
-	workflowResetReapplyEventsFn func(ctx context.Context, resetMutableState workflow.MutableState) error
+	workflowResetReapplyEventsFn func(ctx context.Context, resetMutableState workflow.MutableState) ([]*historypb.HistoryEvent, error)
 
 	WorkflowResetter interface {
 		ResetWorkflow(
@@ -71,6 +72,7 @@ type (
 			resetRunID string,
 			resetRequestID string,
 			currentWorkflow Workflow,
+			updateRegistry update.Registry,
 			resetReason string,
 			additionalReapplyEvents []*historypb.HistoryEvent,
 			resetReapplyExcludeTypes []enumspb.ResetReapplyExcludeType,
@@ -124,6 +126,7 @@ func (r *workflowResetterImpl) ResetWorkflow(
 	resetRunID string,
 	resetRequestID string,
 	currentWorkflow Workflow,
+	updateRegistry update.Registry,
 	resetReason string,
 	additionalReapplyEvents []*historypb.HistoryEvent,
 	resetReapplyExcludeTypes []enumspb.ResetReapplyExcludeType,
@@ -155,8 +158,9 @@ func (r *workflowResetterImpl) ResetWorkflow(
 			return err
 		}
 
-		reapplyEventsFn = func(ctx context.Context, resetMutableState workflow.MutableState) error {
-			lastVisitedRunID, err := r.reapplyContinueAsNewWorkflowEvents(
+		reapplyEventsFn = func(ctx context.Context, resetMutableState workflow.MutableState) ([]*historypb.HistoryEvent, error) {
+			allReappliedEvents := []*historypb.HistoryEvent{}
+			reappliedEvents, lastVisitedRunID, err := r.reapplyContinueAsNewWorkflowEvents(
 				ctx,
 				resetMutableState,
 				namespaceID,
@@ -168,21 +172,24 @@ func (r *workflowResetterImpl) ResetWorkflow(
 				resetReapplyExcludeTypes,
 			)
 			if err != nil {
-				return err
+				return nil, err
 			}
+			allReappliedEvents = append(allReappliedEvents, reappliedEvents...)
 
 			if lastVisitedRunID == currentMutableState.GetExecutionState().RunId {
 				for _, event := range currentWorkflowEventsSeq {
-					if err := reapplyEvents(resetMutableState, event.Events, resetReapplyExcludeTypes); err != nil {
-						return err
+					reappliedEvents, err := reapplyEvents(resetMutableState, event.Events, resetReapplyExcludeTypes)
+					if err != nil {
+						return nil, err
 					}
+					allReappliedEvents = append(allReappliedEvents, reappliedEvents...)
 				}
 			}
-			return nil
+			return allReappliedEvents, nil
 		}
 	} else {
-		reapplyEventsFn = func(ctx context.Context, resetMutableState workflow.MutableState) error {
-			_, err := r.reapplyContinueAsNewWorkflowEvents(
+		reapplyEventsFn = func(ctx context.Context, resetMutableState workflow.MutableState) ([]*historypb.HistoryEvent, error) {
+			reappliedEvents, _, err := r.reapplyContinueAsNewWorkflowEvents(
 				ctx,
 				resetMutableState,
 				namespaceID,
@@ -193,7 +200,7 @@ func (r *workflowResetterImpl) ResetWorkflow(
 				baseNextEventID,
 				resetReapplyExcludeTypes,
 			)
-			return err
+			return reappliedEvents, err
 		}
 	}
 
@@ -215,25 +222,35 @@ func (r *workflowResetterImpl) ResetWorkflow(
 	}
 	defer func() { resetWorkflow.GetReleaseFn()(retError) }()
 
-	resetMS := resetWorkflow.GetMutableState()
-	if err := reapplyEventsFn(ctx, resetMS); err != nil {
+	ms := resetWorkflow.GetMutableState()
+	reappliedEvents := []*historypb.HistoryEvent{}
+
+	events, err := reapplyEventsFn(ctx, ms)
+	if err != nil {
 		return err
 	}
-	if err := reapplyEvents(resetMS, additionalReapplyEvents, nil); err != nil {
+	reappliedEvents = append(reappliedEvents, events...)
+
+	events, err = reapplyEvents(ms, additionalReapplyEvents, nil)
+	if err != nil {
+		return err
+	}
+	reappliedEvents = append(reappliedEvents, events...)
+
+	if err := workflow.ScheduleWorkflowTask(ms); err != nil {
 		return err
 	}
 
-	if err := workflow.ScheduleWorkflowTask(resetWorkflow.GetMutableState()); err != nil {
-		return err
-	}
-
-	return r.persistToDB(
+	if err := r.persistToDB(
 		ctx,
 		currentWorkflow,
 		currentWorkflowMutation,
 		currentWorkflowEventsSeq,
 		resetWorkflow,
-	)
+	); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (r *workflowResetterImpl) prepareResetWorkflow(
@@ -563,15 +580,16 @@ func (r *workflowResetterImpl) reapplyContinueAsNewWorkflowEvents(
 	baseRebuildNextEventID int64,
 	baseNextEventID int64,
 	resetReapplyExcludeTypes []enumspb.ResetReapplyExcludeType,
-) (string, error) {
+) ([]*historypb.HistoryEvent, string, error) {
 
+	allReappliedEvents := []*historypb.HistoryEvent{}
 	// TODO change this logic to fetching all workflow [baseWorkflow, currentWorkflow]
 	//  from visibility for better coverage of events eligible for re-application.
 
 	lastVisitedRunID := baseRunID
 
 	// First, special handling of remaining events for base workflow
-	nextRunID, err := r.reapplyWorkflowEvents(
+	reappliedEvents, nextRunID, err := r.reapplyWorkflowEvents(
 		ctx,
 		resetMutableState,
 		baseRebuildNextEventID,
@@ -581,13 +599,13 @@ func (r *workflowResetterImpl) reapplyContinueAsNewWorkflowEvents(
 	)
 	switch err.(type) {
 	case nil:
-		// noop
+		allReappliedEvents = append(allReappliedEvents, reappliedEvents...)
 	case *serviceerror.DataLoss:
 		// log event
 		r.logger.Error("encountered data loss event", tag.WorkflowNamespaceID(namespaceID.String()), tag.WorkflowID(workflowID), tag.WorkflowRunID(baseRunID))
-		return "", err
+		return nil, "", err
 	default:
-		return "", err
+		return nil, "", err
 	}
 
 	getNextEventIDBranchToken := func(runID string) (nextEventID int64, branchToken []byte, retError error) {
@@ -625,10 +643,10 @@ func (r *workflowResetterImpl) reapplyContinueAsNewWorkflowEvents(
 		lastVisitedRunID = nextRunID
 		nextWorkflowNextEventID, nextWorkflowBranchToken, err := getNextEventIDBranchToken(nextRunID)
 		if err != nil {
-			return "", err
+			return nil, "", err
 		}
 
-		nextRunID, err = r.reapplyWorkflowEvents(
+		reappliedEvents, nextRunID, err = r.reapplyWorkflowEvents(
 			ctx,
 			resetMutableState,
 			common.FirstEventID,
@@ -638,16 +656,16 @@ func (r *workflowResetterImpl) reapplyContinueAsNewWorkflowEvents(
 		)
 		switch err.(type) {
 		case nil:
-			// noop
+			allReappliedEvents = append(allReappliedEvents, reappliedEvents...)
 		case *serviceerror.DataLoss:
 			// log event
 			r.logger.Error("encounter data loss event", tag.WorkflowNamespaceID(namespaceID.String()), tag.WorkflowID(workflowID), tag.WorkflowRunID(nextRunID))
-			return "", err
+			return nil, "", err
 		default:
-			return "", err
+			return nil, "", err
 		}
 	}
-	return lastVisitedRunID, nil
+	return allReappliedEvents, lastVisitedRunID, nil
 }
 
 func (r *workflowResetterImpl) reapplyWorkflowEvents(
@@ -657,7 +675,7 @@ func (r *workflowResetterImpl) reapplyWorkflowEvents(
 	nextEventID int64,
 	branchToken []byte,
 	resetReapplyExcludeTypes []enumspb.ResetReapplyExcludeType,
-) (string, error) {
+) ([]*historypb.HistoryEvent, string, error) {
 
 	// TODO change this logic to fetching all workflow [baseWorkflow, currentWorkflow]
 	//  from visibility for better coverage of events eligible for re-application.
@@ -673,15 +691,18 @@ func (r *workflowResetterImpl) reapplyWorkflowEvents(
 	var nextRunID string
 	var lastEvents []*historypb.HistoryEvent
 
+	allReappliedEvents := []*historypb.HistoryEvent{}
 	for iter.HasNext() {
 		batch, err := iter.Next()
 		if err != nil {
-			return "", err
+			return nil, "", err
 		}
 		lastEvents = batch.Events
-		if err := reapplyEvents(mutableState, lastEvents, resetReapplyExcludeTypes); err != nil {
-			return "", err
+		reappliedEvents, err := reapplyEvents(mutableState, lastEvents, resetReapplyExcludeTypes)
+		if err != nil {
+			return nil, "", err
 		}
+		allReappliedEvents = append(allReappliedEvents, reappliedEvents...)
 	}
 
 	if len(lastEvents) > 0 {
@@ -690,21 +711,25 @@ func (r *workflowResetterImpl) reapplyWorkflowEvents(
 			nextRunID = lastEvent.GetWorkflowExecutionContinuedAsNewEventAttributes().GetNewExecutionRunId()
 		}
 	}
-	return nextRunID, nil
+	return allReappliedEvents, nextRunID, nil
 }
 
 func reapplyEvents(
 	mutableState workflow.MutableState,
 	events []*historypb.HistoryEvent,
 	resetReapplyExcludeTypes []enumspb.ResetReapplyExcludeType,
-) error {
+) ([]*historypb.HistoryEvent, error) {
 	excludeSignal := false
+	excludeUpdate := false
 	for _, e := range resetReapplyExcludeTypes {
-		if e == enumspb.RESET_REAPPLY_EXCLUDE_TYPE_SIGNAL {
+		switch e {
+		case enumspb.RESET_REAPPLY_EXCLUDE_TYPE_SIGNAL:
 			excludeSignal = true
+		case enumspb.RESET_REAPPLY_EXCLUDE_TYPE_UPDATE:
+			excludeUpdate = true
 		}
 	}
-
+	reappliedEvents := []*historypb.HistoryEvent{}
 	for _, event := range events {
 		switch event.GetEventType() {
 		case enumspb.EVENT_TYPE_WORKFLOW_EXECUTION_SIGNALED:
@@ -712,20 +737,48 @@ func reapplyEvents(
 				continue
 			}
 			attr := event.GetWorkflowExecutionSignaledEventAttributes()
-			if _, err := mutableState.AddWorkflowExecutionSignaled(
+			e, err := mutableState.AddWorkflowExecutionSignaled(
 				attr.GetSignalName(),
 				attr.GetInput(),
 				attr.GetIdentity(),
 				attr.GetHeader(),
 				attr.GetSkipGenerateWorkflowTask(),
-			); err != nil {
-				return err
+			)
+			if err != nil {
+				return nil, err
 			}
+			reappliedEvents = append(reappliedEvents, e)
+		case enumspb.EVENT_TYPE_WORKFLOW_EXECUTION_UPDATE_ACCEPTED:
+			if excludeUpdate {
+				continue
+			}
+			attr := event.GetWorkflowExecutionUpdateAcceptedEventAttributes()
+			e, err := mutableState.AddWorkflowExecutionUpdateRequestedEvent(
+				attr.GetAcceptedRequest(),
+				enumspb.UPDATE_REQUESTED_EVENT_ORIGIN_REAPPLY,
+			)
+			if err != nil {
+				return nil, err
+			}
+			reappliedEvents = append(reappliedEvents, e)
+		case enumspb.EVENT_TYPE_WORKFLOW_EXECUTION_UPDATE_REQUESTED:
+			if excludeUpdate {
+				continue
+			}
+			attr := event.GetWorkflowExecutionUpdateRequestedEventAttributes()
+			e, err := mutableState.AddWorkflowExecutionUpdateRequestedEvent(
+				attr.GetRequest(),
+				attr.Origin,
+			)
+			if err != nil {
+				return nil, err
+			}
+			reappliedEvents = append(reappliedEvents, e)
 		default:
-			// events other than signal will be ignored
+			// other event types are not reapplied
 		}
 	}
-	return nil
+	return reappliedEvents, nil
 }
 
 func (r *workflowResetterImpl) getPaginationFn(

@@ -105,6 +105,10 @@ type (
 	}
 )
 
+func (u *Update) SetRequest(request *anypb.Any) {
+	u.request = request
+}
+
 // New creates a new Update instance with the provided ID that will call the
 // onComplete callback when it completes.
 func New(id string, opts ...updateOpt) *Update {
@@ -134,11 +138,27 @@ func withInstrumentation(i *instrumentation) updateOpt {
 	}
 }
 
-func newAccepted(id string, acceptedEventID int64, opts ...updateOpt) *Update {
+func newRequested(id string, request *anypb.Any, opts ...updateOpt) *Update {
+	upd := &Update{
+		id:              id,
+		state:           stateRequested,
+		request:         request,
+		onComplete:      func() {},
+		instrumentation: &noopInstrumentation,
+		accepted:        future.NewFuture[*failurepb.Failure](),
+		outcome:         future.NewFuture[*updatepb.Outcome](),
+	}
+	for _, opt := range opts {
+		opt(upd)
+	}
+	return upd
+}
+
+func newAccepted(id string, eventID int64, opts ...updateOpt) *Update {
 	upd := &Update{
 		id:              id,
 		state:           stateAccepted,
-		acceptedEventID: acceptedEventID,
+		acceptedEventID: eventID,
 		onComplete:      func() {},
 		instrumentation: &noopInstrumentation,
 		accepted:        future.NewReadyFuture[*failurepb.Failure](nil, nil),
