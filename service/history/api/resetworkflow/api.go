@@ -31,7 +31,6 @@ import (
 	"go.temporal.io/api/serviceerror"
 
 	enumspb "go.temporal.io/api/enums/v1"
-	"go.temporal.io/api/workflowservice/v1"
 	"go.temporal.io/server/api/historyservice/v1"
 	"go.temporal.io/server/common"
 	"go.temporal.io/server/common/definition"
@@ -165,7 +164,7 @@ func Invoke(
 		),
 		request.GetReason(),
 		nil,
-		getResetReapplyExcludeTypes(request),
+		GetResetReapplyExcludeTypes(request.GetResetReapplyExcludeTypes(), request.GetResetReapplyType()),
 	); err != nil {
 		return nil, err
 	}
@@ -174,14 +173,14 @@ func Invoke(
 	}, nil
 }
 
-// getResetReapplyExcludeTypes computes the set of requested exclude types. It
+// GetResetReapplyExcludeTypes computes the set of requested exclude types. It
 // uses the reset_reapply_exclude_types request field (a set of event types to
 // exclude from reapply), as well as the deprecated reset_reapply_type request
 // field (a specification of what to include).
-func getResetReapplyExcludeTypes(request *workflowservice.ResetWorkflowExecutionRequest) []enumspb.ResetReapplyExcludeType {
-	includeSpec := request.GetResetReapplyType()
-	excludeTypes := request.GetResetReapplyExcludeTypes()
-
+func GetResetReapplyExcludeTypes(
+	excludeTypes []enumspb.ResetReapplyExcludeType,
+	includeSpec enumspb.ResetReapplyType,
+) []enumspb.ResetReapplyExcludeType {
 	excludeSet := map[enumspb.ResetReapplyExcludeType]bool{}
 	switch includeSpec {
 	case enumspb.RESET_REAPPLY_TYPE_SIGNAL:
