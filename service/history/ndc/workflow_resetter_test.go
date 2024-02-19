@@ -834,7 +834,7 @@ func (s *workflowResetterSuite) TestReapplyEvents() {
 		}
 	}
 
-	err := s.workflowResetter.reapplyEvents(mutableState, events, nil)
+	err := reapplyEvents(mutableState, events, nil)
 	s.NoError(err)
 }
 

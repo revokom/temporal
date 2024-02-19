@@ -1,4 +1,5 @@
 // The MIT License
+
 //
 // Copyright (c) 2020 Temporal Technologies Inc.  All rights reserved.
 //
@@ -172,7 +173,7 @@ func (r *workflowResetterImpl) ResetWorkflow(
 
 			if lastVisitedRunID == currentMutableState.GetExecutionState().RunId {
 				for _, event := range currentWorkflowEventsSeq {
-					if err := r.reapplyEvents(resetMutableState, event.Events, resetReapplyExcludeTypes); err != nil {
+					if err := reapplyEvents(resetMutableState, event.Events, resetReapplyExcludeTypes); err != nil {
 						return err
 					}
 				}
@@ -218,7 +219,7 @@ func (r *workflowResetterImpl) ResetWorkflow(
 	if err := reapplyEventsFn(ctx, resetMS); err != nil {
 		return err
 	}
-	if err := r.reapplyEvents(resetMS, additionalReapplyEvents, nil); err != nil {
+	if err := reapplyEvents(resetMS, additionalReapplyEvents, nil); err != nil {
 		return err
 	}
 
@@ -678,7 +679,7 @@ func (r *workflowResetterImpl) reapplyWorkflowEvents(
 			return "", err
 		}
 		lastEvents = batch.Events
-		if err := r.reapplyEvents(mutableState, lastEvents, resetReapplyExcludeTypes); err != nil {
+		if err := reapplyEvents(mutableState, lastEvents, resetReapplyExcludeTypes); err != nil {
 			return "", err
 		}
 	}
@@ -692,7 +693,7 @@ func (r *workflowResetterImpl) reapplyWorkflowEvents(
 	return nextRunID, nil
 }
 
-func (r *workflowResetterImpl) reapplyEvents(
+func reapplyEvents(
 	mutableState workflow.MutableState,
 	events []*historypb.HistoryEvent,
 	resetReapplyExcludeTypes []enumspb.ResetReapplyExcludeType,
