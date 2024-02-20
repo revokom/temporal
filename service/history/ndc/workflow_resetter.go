@@ -714,6 +714,7 @@ func (r *workflowResetterImpl) reapplyWorkflowEvents(
 	return allReappliedEvents, nextRunID, nil
 }
 
+// TODO (dan) this function is almost identical to EventsReapplierImpl.ReapplyEvents in events_reapplier.go: unify them.
 func reapplyEvents(
 	mutableState workflow.MutableState,
 	events []*historypb.HistoryEvent,
