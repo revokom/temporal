@@ -28,6 +28,7 @@ import (
 	"go.temporal.io/server/common/config"
 	"go.temporal.io/server/common/persistence/sql"
 	"go.temporal.io/server/common/persistence/sql/sqlplugin"
+	"go.temporal.io/server/common/persistence/sql/sqlplugin/mysql/session"
 	"go.temporal.io/server/common/resolver"
 )
 
@@ -52,7 +53,7 @@ func (p *pluginV8) CreateDB(
 	cfg *config.SQL,
 	r resolver.ServiceResolver,
 ) (sqlplugin.DB, error) {
-	conn, err := p.createDBConnection(cfg, r)
+	conn, err := p.createDBConnection(session.MySQLVersion8_0, dbKind, cfg, r)
 	if err != nil {
 		return nil, err
 	}
@@ -66,7 +67,7 @@ func (p *pluginV8) CreateAdminDB(
 	cfg *config.SQL,
 	r resolver.ServiceResolver,
 ) (sqlplugin.AdminDB, error) {
-	conn, err := p.createDBConnection(cfg, r)
+	conn, err := p.createDBConnection(session.MySQLVersion8_0, sqlplugin.DbKindMain, cfg, r)
 	if err != nil {
 		return nil, err
 	}
