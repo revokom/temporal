@@ -60,6 +60,7 @@ const (
 
 var (
 	errMySQL8VisInterpolateParamsNotSupported = errors.New("interpolateParams is not supported for mysql8 visibility stores")
+	errUnspecifiedMySQLVersion                = errors.New("bug: mysql version not specified")
 	dsnAttrOverrides                          = map[string]string{
 		"parseTime":       "true",
 		"clientFoundRows": "true",
