@@ -213,13 +213,38 @@ func (t *transferQueueActiveTaskExecutor) processActivityTask(
 	}
 
 	timeout := timestamp.DurationValue(ai.ScheduleToStartTimeout)
-	directive := worker_versioning.MakeDirectiveForActivityTask(mutableState.GetWorkerVersionStamp(), ai.UseCompatibleVersion)
+	useCompatibleVersion := ai.UseCompatibleVersion || (ai.GetUseWorkflowBuildId() != nil)
+	directive := worker_versioning.MakeDirectiveForActivityTask(mutableState.GetMostRecentWorkerVersionStamp(), useCompatibleVersion)
 
 	// NOTE: do not access anything related mutable state after this lock release
 	// release the context lock since we no longer need mutable state and
 	// the rest of logic is making RPC call, which takes time.
 	release(nil)
-	return t.pushActivity(ctx, task, timeout, directive)
+
+	resp, err := t.pushActivity(ctx, task, timeout, directive)
+	if err != nil {
+		return err
+	}
+
+	if useCompatibleVersion {
+		// activity's build ID is the same as WF's, so no need to update MS
+		return nil
+	}
+
+	if resp.AssignedBuildId == "" {
+		// the task is sync-matched, or versioning is not enabled for this Task Queue
+		return nil
+	}
+
+	err = t.updateScheduledActivityBuildId(ctx, task, resp.AssignedBuildId)
+	if err != nil {
+		// An independent task is scheduled but we could not persist the assigned build ID in mutable state.
+		// This is only an issue for user visibility: until the task is started user would not see the assigned
+		// build ID.
+		// Since it does not affect WF progress, just logging warn and skipping the error.
+		t.logger.Warn("failed to update activity's assigned build ID", tag.Error(err))
+	}
+	return nil
 }
 
 func (t *transferQueueActiveTaskExecutor) processWorkflowTask(
@@ -260,8 +285,9 @@ func (t *transferQueueActiveTaskExecutor) processWorkflowTask(
 
 	normalTaskQueueName := mutableState.GetExecutionInfo().TaskQueue
 
+	isFirstTask := mutableState.GetLastWorkflowTaskStartedEventID() == common.EmptyEventID
 	directive := worker_versioning.MakeDirectiveForWorkflowTask(
-		mutableState.GetWorkerVersionStamp(),
+		mutableState.GetMostRecentWorkerVersionStamp(),
 		mutableState.GetLastWorkflowTaskStartedEventID(),
 	)
 
@@ -270,7 +296,7 @@ func (t *transferQueueActiveTaskExecutor) processWorkflowTask(
 	// which will call history back (with RecordWorkflowTaskStarted), and it will try to get workflow lock again.
 	release(nil)
 
-	err = t.pushWorkflowTask(ctx, transferTask, taskQueue, scheduleToStartTimeout.AsDuration(), directive)
+	resp, err := t.pushWorkflowTask(ctx, transferTask, taskQueue, scheduleToStartTimeout.AsDuration(), directive)
 
 	if _, ok := err.(*serviceerrors.StickyWorkerUnavailable); ok {
 		// sticky worker is unavailable, switch to original normal task queue
@@ -285,7 +311,30 @@ func (t *transferQueueActiveTaskExecutor) processWorkflowTask(
 		// There is no need to reset sticky, because if this task is picked by new worker, the new worker will reset
 		// the sticky queue to a new one. However, if worker is completely down, that schedule_to_start timeout task
 		// will re-create a new non-sticky task and reset sticky.
-		err = t.pushWorkflowTask(ctx, transferTask, taskQueue, scheduleToStartTimeout.AsDuration(), directive)
+		resp, err = t.pushWorkflowTask(ctx, transferTask, taskQueue, scheduleToStartTimeout.AsDuration(), directive)
+	}
+
+	if err != nil {
+		return err
+	}
+
+	if !isFirstTask {
+		// not the first task of the workflow, no need to update MS
+		return nil
+	}
+
+	if resp.AssignedBuildId == "" {
+		// the task is sync-matched, or versioning is not enabled for this Task Queue
+		return nil
+	}
+
+	err = t.updateWorkflowAssignedBuildId(ctx, transferTask, resp.AssignedBuildId)
+	if err != nil {
+		// The first workflow task is scheduled but we could not persist the assigned build ID in mutable state.
+		// This is only an issue for user visibility: until the task is started user would not see the assigned
+		// build ID.
+		// Since it does not affect WF progress, just logging warn and skipping the error.
+		t.logger.Error("failed to update workflow's assigned build ID", tag.Error(err))
 	}
 	return err
 }
@@ -810,7 +859,7 @@ func (t *transferQueueActiveTaskExecutor) processStartChildExecution(
 	// - parent is using versioning
 	var sourceVersionStamp *commonpb.WorkerVersionStamp
 	if attributes.UseCompatibleVersion {
-		sourceVersionStamp = worker_versioning.StampIfUsingVersioning(mutableState.GetWorkerVersionStamp())
+		sourceVersionStamp = worker_versioning.StampIfUsingVersioning(mutableState.GetMostRecentWorkerVersionStamp())
 	}
 
 	childRunID, childClock, err := t.startWorkflow(
@@ -1575,6 +1624,91 @@ func (t *transferQueueActiveTaskExecutor) applyParentClosePolicy(
 	default:
 		return serviceerror.NewInternal(fmt.Sprintf("unknown parent close policy: %v", childInfo.ParentClosePolicy))
 	}
+}
+
+func (t *transferQueueActiveTaskExecutor) updateScheduledActivityBuildId(ctx context.Context, task *tasks.ActivityTask, buildId string) error {
+	weContext, release, err := getWorkflowExecutionContextForTask(ctx, t.shardContext, t.cache, task)
+	if err != nil {
+		return err
+	}
+
+	mutableState, err := loadMutableStateForTransferTask(ctx, t.shardContext, weContext, task, t.metricHandler, t.logger)
+	if err != nil {
+		release(err)
+		return err
+	}
+	defer func() {
+		// release(nil) so that the mutable state is not unloaded from cache
+		release(nil)
+	}()
+
+	if mutableState == nil {
+		return consts.ErrWorkflowExecutionNotFound
+	}
+
+	ai, activityRunning := mutableState.GetActivityInfo(task.ScheduledEventID)
+	if !activityRunning {
+		// We did not find the activity task, it means that it's already completed.
+		return nil
+	}
+
+	if ai.ScheduledEventId != task.ScheduledEventID {
+		// this scheduled event is stale now, so don't write build ID
+		// The build ID should be already updated via RecordActivityTaskStarted
+		return nil
+	}
+
+	ai.AssignedBuildId = &persistencespb.ActivityInfo_LastIndependentlyAssignedBuildId{LastIndependentlyAssignedBuildId: buildId}
+	err = mutableState.UpdateActivity(ai)
+	if err != nil {
+		return err
+	}
+
+	return weContext.UpdateWorkflowExecutionAsActive(ctx, t.shardContext)
+}
+
+func (t *transferQueueActiveTaskExecutor) updateWorkflowAssignedBuildId(ctx context.Context, transferTask *tasks.WorkflowTask, buildId string) error {
+	weContext, release, err := getWorkflowExecutionContextForTask(ctx, t.shardContext, t.cache, transferTask)
+	if err != nil {
+		return err
+	}
+
+	mutableState, err := loadMutableStateForTransferTask(ctx, t.shardContext, weContext, transferTask, t.metricHandler, t.logger)
+	if err != nil {
+		release(err)
+		return err
+	}
+	defer func() {
+		// release(nil) so that the mutable state is not unloaded from cache
+		release(nil)
+	}()
+
+	if mutableState == nil {
+		return consts.ErrWorkflowExecutionNotFound
+	}
+
+	workflowTask := mutableState.GetWorkflowTaskByID(transferTask.ScheduledEventID)
+	if workflowTask == nil {
+		return nil
+	}
+	err = CheckTaskVersion(t.shardContext, t.logger, mutableState.GetNamespaceEntry(), workflowTask.Version, transferTask.Version, transferTask)
+	if err != nil {
+		return err
+	}
+
+	workflowTaskStarted := mutableState.GetLastWorkflowTaskStartedEventID() != common.EmptyEventID
+
+	if workflowTaskStarted {
+		// this scheduled event is stale now, so don't write build ID here.
+		// The build ID should be already updated via RecordWorkflowTaskStarted
+		return nil
+	}
+
+	err = mutableState.UpdateBuildIDAssignment(buildId)
+	if err != nil {
+		return err
+	}
+	return weContext.UpdateWorkflowExecutionAsActive(ctx, t.shardContext)
 }
 
 func copyChildWorkflowInfos(

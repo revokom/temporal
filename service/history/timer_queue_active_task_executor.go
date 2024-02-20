@@ -486,7 +486,7 @@ func (t *timerQueueActiveTaskExecutor) executeActivityRetryTimerTask(
 		Kind: enumspb.TASK_QUEUE_KIND_NORMAL,
 	}
 	scheduleToStartTimeout := timestamp.DurationValue(activityInfo.ScheduleToStartTimeout)
-	directive := worker_versioning.MakeDirectiveForActivityTask(mutableState.GetWorkerVersionStamp(), activityInfo.UseCompatibleVersion)
+	directive := worker_versioning.MakeDirectiveForActivityTask(mutableState.GetMostRecentWorkerVersionStamp(), activityInfo.UseCompatibleVersion)
 
 	// NOTE: do not access anything related mutable state after this lock release
 	release(nil) // release earlier as we don't need the lock anymore

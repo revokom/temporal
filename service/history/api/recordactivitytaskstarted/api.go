@@ -28,6 +28,7 @@ import (
 	"context"
 
 	enumspb "go.temporal.io/api/enums/v1"
+	"go.temporal.io/server/api/persistence/v1"
 
 	"go.temporal.io/server/api/historyservice/v1"
 	"go.temporal.io/server/common"
@@ -116,6 +117,21 @@ func Invoke(
 				ai, scheduledEventID, requestID, request.PollRequest.GetIdentity(),
 			); err != nil {
 				return nil, err
+			}
+
+			versioningInfo := request.GetPollRequest().GetWorkerVersionCapabilities()
+			if versioningInfo.GetUseVersioning() {
+				if ai.GetUseWorkflowBuildId() != nil {
+					// wf assigned build id is update when a task (activity or workflow task) is dispatched
+					err = mutableState.UpdateBuildIDAssignment(versioningInfo.GetBuildId())
+					if err != nil {
+						return nil, err
+					}
+				} else {
+					// Independent activities (UseCompatibleVersion=false) do not change build ID of their wf, we store their
+					// assigned build ID in activity info.
+					ai.AssignedBuildId = &persistence.ActivityInfo_LastIndependentlyAssignedBuildId{LastIndependentlyAssignedBuildId: versioningInfo.GetBuildId()}
+				}
 			}
 
 			scheduleToStartLatency := ai.GetStartedTime().AsTime().Sub(ai.GetScheduledTime().AsTime())

@@ -118,8 +118,8 @@ func (t *transferQueueTaskExecutorBase) pushActivity(
 	task *tasks.ActivityTask,
 	activityScheduleToStartTimeout time.Duration,
 	directive *taskqueuespb.TaskVersionDirective,
-) error {
-	_, err := t.matchingRawClient.AddActivityTask(ctx, &matchingservice.AddActivityTaskRequest{
+	) (*matchingservice.AddActivityTaskResponse, error) {
+	resp, err := t.matchingRawClient.AddActivityTask(ctx, &matchingservice.AddActivityTaskRequest{
 		NamespaceId: task.NamespaceID,
 		Execution: &commonpb.WorkflowExecution{
 			WorkflowId: task.WorkflowID,
@@ -140,21 +140,15 @@ func (t *transferQueueTaskExecutorBase) pushActivity(
 		tasks.InitializeLogger(task, t.logger).Error("Matching returned not found error for AddActivityTask", tag.Error(err))
 	}
 
-	return err
+	return resp, err
 }
 
-func (t *transferQueueTaskExecutorBase) pushWorkflowTask(
-	ctx context.Context,
-	task *tasks.WorkflowTask,
-	taskqueue *taskqueuepb.TaskQueue,
-	workflowTaskScheduleToStartTimeout time.Duration,
-	directive *taskqueuespb.TaskVersionDirective,
-) error {
+func (t *transferQueueTaskExecutorBase) pushWorkflowTask(ctx context.Context, task *tasks.WorkflowTask, taskqueue *taskqueuepb.TaskQueue, workflowTaskScheduleToStartTimeout time.Duration, directive *taskqueuespb.TaskVersionDirective, ) (*matchingservice.AddWorkflowTaskResponse, error) {
 	var sst *durationpb.Duration
 	if workflowTaskScheduleToStartTimeout > 0 {
 		sst = durationpb.New(workflowTaskScheduleToStartTimeout)
 	}
-	_, err := t.matchingRawClient.AddWorkflowTask(ctx, &matchingservice.AddWorkflowTaskRequest{
+	resp, err := t.matchingRawClient.AddWorkflowTask(ctx, &matchingservice.AddWorkflowTaskRequest{
 		NamespaceId: task.NamespaceID,
 		Execution: &commonpb.WorkflowExecution{
 			WorkflowId: task.WorkflowID,
@@ -172,7 +166,7 @@ func (t *transferQueueTaskExecutorBase) pushWorkflowTask(
 		tasks.InitializeLogger(task, t.logger).Error("Matching returned not found error for AddWorkflowTask", tag.Error(err))
 	}
 
-	return err
+	return resp, err
 }
 
 func (t *transferQueueTaskExecutorBase) processDeleteExecutionTask(

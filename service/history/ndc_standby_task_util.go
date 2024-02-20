@@ -143,7 +143,7 @@ func newActivityTaskPostActionInfo(
 		return nil, err
 	}
 
-	directive := worker_versioning.MakeDirectiveForActivityTask(mutableState.GetWorkerVersionStamp(), useCompatibleVersion)
+	directive := worker_versioning.MakeDirectiveForActivityTask(mutableState.GetMostRecentWorkerVersionStamp(), useCompatibleVersion)
 
 	return &activityTaskPostActionInfo{
 		historyResendInfo:                  resendInfo,
@@ -163,7 +163,7 @@ func newActivityRetryTimePostActionInfo(
 		return nil, err
 	}
 
-	directive := worker_versioning.MakeDirectiveForActivityTask(mutableState.GetWorkerVersionStamp(), useCompatibleVersion)
+	directive := worker_versioning.MakeDirectiveForActivityTask(mutableState.GetMostRecentWorkerVersionStamp(), useCompatibleVersion)
 
 	return &activityTaskPostActionInfo{
 		historyResendInfo:                  resendInfo,
@@ -184,7 +184,7 @@ func newWorkflowTaskPostActionInfo(
 	}
 
 	directive := worker_versioning.MakeDirectiveForWorkflowTask(
-		mutableState.GetWorkerVersionStamp(),
+		mutableState.GetMostRecentWorkerVersionStamp(),
 		mutableState.GetLastWorkflowTaskStartedEventID(),
 	)
 

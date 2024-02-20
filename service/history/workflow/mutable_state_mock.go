@@ -1902,6 +1902,20 @@ func (mr *MockMutableStateMockRecorder) GetLastWriteVersion() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLastWriteVersion", reflect.TypeOf((*MockMutableState)(nil).GetLastWriteVersion))
 }
 
+// GetMostRecentWorkerVersionStamp mocks base method.
+func (m *MockMutableState) GetMostRecentWorkerVersionStamp() *v10.WorkerVersionStamp {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMostRecentWorkerVersionStamp")
+	ret0, _ := ret[0].(*v10.WorkerVersionStamp)
+	return ret0
+}
+
+// GetMostRecentWorkerVersionStamp indicates an expected call of GetMostRecentWorkerVersionStamp.
+func (mr *MockMutableStateMockRecorder) GetMostRecentWorkerVersionStamp() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMostRecentWorkerVersionStamp", reflect.TypeOf((*MockMutableState)(nil).GetMostRecentWorkerVersionStamp))
+}
+
 // GetNamespaceEntry mocks base method.
 func (m *MockMutableState) GetNamespaceEntry() *namespace.Namespace {
 	m.ctrl.T.Helper()
@@ -2219,20 +2233,6 @@ func (m *MockMutableState) GetUserTimerInfoByEventID(arg0 int64) (*v112.TimerInf
 func (mr *MockMutableStateMockRecorder) GetUserTimerInfoByEventID(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUserTimerInfoByEventID", reflect.TypeOf((*MockMutableState)(nil).GetUserTimerInfoByEventID), arg0)
-}
-
-// GetWorkerVersionStamp mocks base method.
-func (m *MockMutableState) GetWorkerVersionStamp() *v10.WorkerVersionStamp {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetWorkerVersionStamp")
-	ret0, _ := ret[0].(*v10.WorkerVersionStamp)
-	return ret0
-}
-
-// GetWorkerVersionStamp indicates an expected call of GetWorkerVersionStamp.
-func (mr *MockMutableStateMockRecorder) GetWorkerVersionStamp() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetWorkerVersionStamp", reflect.TypeOf((*MockMutableState)(nil).GetWorkerVersionStamp))
 }
 
 // GetWorkflowCloseTime mocks base method.
@@ -2758,6 +2758,20 @@ func (m *MockMutableState) UpdateActivityWithTimerHeartbeat(arg0 *v112.ActivityI
 func (mr *MockMutableStateMockRecorder) UpdateActivityWithTimerHeartbeat(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateActivityWithTimerHeartbeat", reflect.TypeOf((*MockMutableState)(nil).UpdateActivityWithTimerHeartbeat), arg0, arg1)
+}
+
+// UpdateBuildIDAssignment mocks base method.
+func (m *MockMutableState) UpdateBuildIDAssignment(buildId string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateBuildIDAssignment", buildId)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateBuildIDAssignment indicates an expected call of UpdateBuildIDAssignment.
+func (mr *MockMutableStateMockRecorder) UpdateBuildIDAssignment(buildId interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateBuildIDAssignment", reflect.TypeOf((*MockMutableState)(nil).UpdateBuildIDAssignment), buildId)
 }
 
 // UpdateCurrentVersion mocks base method.

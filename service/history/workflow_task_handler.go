@@ -454,7 +454,7 @@ func (handler *workflowTaskHandlerImpl) handleCommandScheduleActivity(
 	// Note that if `UseCompatibleVersion` is false, it implies that the activity should run on the "default" version
 	// for the task queue.
 	eagerStartActivity := attr.RequestEagerExecution && handler.config.EnableActivityEagerExecution(namespace) &&
-		(!handler.mutableState.GetWorkerVersionStamp().GetUseVersioning() || attr.UseCompatibleVersion)
+		(!handler.mutableState.GetMostRecentWorkerVersionStamp().GetUseVersioning() || attr.UseCompatibleVersion)
 
 	_, _, err := handler.mutableState.AddActivityTaskScheduledEvent(
 		handler.workflowTaskCompletedID,

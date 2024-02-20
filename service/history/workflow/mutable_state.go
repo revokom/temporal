@@ -210,7 +210,7 @@ type (
 		GetWorkflowStateStatus() (enumsspb.WorkflowExecutionState, enumspb.WorkflowExecutionStatus)
 		GetQueryRegistry() QueryRegistry
 		GetBaseWorkflowInfo() *workflowspb.BaseExecutionInfo
-		GetWorkerVersionStamp() *commonpb.WorkerVersionStamp
+		GetMostRecentWorkerVersionStamp() *commonpb.WorkerVersionStamp
 		IsTransientWorkflowTask() bool
 		ClearTransientWorkflowTask() error
 		HasBufferedEvents() bool
@@ -293,6 +293,7 @@ type (
 		UpdateUserTimer(*persistencespb.TimerInfo) error
 		UpdateCurrentVersion(version int64, forceUpdate bool) error
 		UpdateWorkflowStateStatus(state enumsspb.WorkflowExecutionState, status enumspb.WorkflowExecutionStatus) error
+		UpdateBuildIDAssignment(buildId string) error
 
 		GetHistorySize() int64
 		AddHistorySize(size int64)

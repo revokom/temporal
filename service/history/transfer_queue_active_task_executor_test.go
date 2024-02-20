@@ -2534,7 +2534,7 @@ func (s *transferQueueActiveTaskExecutorSuite) createAddWorkflowTaskRequest(
 	}
 
 	directive := worker_versioning.MakeDirectiveForWorkflowTask(
-		mutableState.GetWorkerVersionStamp(),
+		mutableState.GetMostRecentWorkerVersionStamp(),
 		mutableState.GetLastWorkflowTaskStartedEventID(),
 	)
 

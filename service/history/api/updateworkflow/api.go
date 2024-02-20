@@ -175,7 +175,7 @@ func Invoke(
 			taskQueue = common.CloneProto(newWorkflowTask.TaskQueue)
 			normalTaskQueueName = ms.GetExecutionInfo().TaskQueue
 			directive = worker_versioning.MakeDirectiveForWorkflowTask(
-				ms.GetWorkerVersionStamp(),
+				ms.GetMostRecentWorkerVersionStamp(),
 				ms.GetLastWorkflowTaskStartedEventID(),
 			)
 

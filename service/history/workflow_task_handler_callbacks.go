@@ -274,6 +274,14 @@ func (handler *workflowTaskHandlerCallbacksImpl) handleWorkflowTaskStarted(
 				updateAction.Noop = true
 			}
 
+			versioningInfo := req.GetPollRequest().GetWorkerVersionCapabilities()
+			if versioningInfo.GetUseVersioning() {
+				err = mutableState.UpdateBuildIDAssignment(versioningInfo.GetBuildId())
+				if err != nil {
+					return nil, err
+				}
+			}
+
 			workflowScheduleToStartLatency := workflowTask.StartedTime.Sub(workflowTask.ScheduledTime)
 			namespaceName := namespaceEntry.Name()
 			taskQueue := workflowTask.TaskQueue
@@ -455,7 +463,7 @@ func (handler *workflowTaskHandlerCallbacksImpl) handleWorkflowTaskCompleted(
 	}()
 
 	// It's an error if the workflow has used versioning in the past but this task has no versioning info.
-	if ms.GetWorkerVersionStamp().GetUseVersioning() && !request.GetWorkerVersionStamp().GetUseVersioning() {
+	if ms.GetMostRecentWorkerVersionStamp().GetUseVersioning() && !request.GetWorkerVersionStamp().GetUseVersioning() {
 		return nil, serviceerror.NewInvalidArgument("Workflow using versioning must continue to use versioning.")
 	}
 

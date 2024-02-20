@@ -1520,8 +1520,8 @@ func (ms *MutableStateImpl) ClearTransientWorkflowTask() error {
 	return nil
 }
 
-func (ms *MutableStateImpl) GetWorkerVersionStamp() *commonpb.WorkerVersionStamp {
-	return ms.executionInfo.WorkerVersionStamp
+func (ms *MutableStateImpl) GetMostRecentWorkerVersionStamp() *commonpb.WorkerVersionStamp {
+	return ms.executionInfo.MostRecentWorkerVersionStamp
 }
 
 func (ms *MutableStateImpl) HasBufferedEvents() bool {
@@ -1690,7 +1690,7 @@ func (ms *MutableStateImpl) addWorkflowExecutionStartedEventForContinueAsNew(
 	// - using versioning
 	var sourceVersionStamp *commonpb.WorkerVersionStamp
 	if command.UseCompatibleVersion {
-		sourceVersionStamp = worker_versioning.StampIfUsingVersioning(previousExecutionInfo.WorkerVersionStamp)
+		sourceVersionStamp = worker_versioning.StampIfUsingVersioning(previousExecutionInfo.MostRecentWorkerVersionStamp)
 	}
 
 	req := &historyservice.StartWorkflowExecutionRequest{
@@ -1933,7 +1933,7 @@ func (ms *MutableStateImpl) ApplyWorkflowExecutionStartedEvent(
 		}
 	}
 
-	ms.executionInfo.WorkerVersionStamp = event.SourceVersionStamp
+	ms.executionInfo.MostRecentWorkerVersionStamp = event.SourceVersionStamp
 
 	ms.approximateSize += ms.executionInfo.Size()
 
@@ -2096,11 +2096,13 @@ func (ms *MutableStateImpl) addResetPointFromCompletion(
 	return true
 }
 
-func (ms *MutableStateImpl) updateBuildIdsSearchAttribute(
-	version *commonpb.WorkerVersionStamp,
-	eventID int64,
-	maxSearchAttributeValueSize int,
-) error {
+func (ms *MutableStateImpl) UpdateBuildIDAssignment(buildId string) error {
+	ms.GetExecutionInfo().AssignedBuildId = buildId
+	limit := ms.config.SearchAttributesSizeOfValueLimit(ms.namespaceEntry.Name().String())
+	return ms.updateBuildIdsSearchAttribute(&commonpb.WorkerVersionStamp{UseVersioning: true, BuildId: buildId}, limit)
+}
+
+func (ms *MutableStateImpl) updateBuildIdsSearchAttribute(version *commonpb.WorkerVersionStamp, maxSearchAttributeValueSize int) error {
 	var toAdd []string
 	if !version.GetUseVersioning() {
 		toAdd = append(toAdd, worker_versioning.UnversionedSearchAttribute)

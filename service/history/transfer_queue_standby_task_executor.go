@@ -537,12 +537,13 @@ func (t *transferQueueStandbyTaskExecutor) pushActivity(
 
 	pushActivityInfo := postActionInfo.(*activityTaskPostActionInfo)
 	timeout := pushActivityInfo.activityTaskScheduleToStartTimeout
-	return t.transferQueueTaskExecutorBase.pushActivity(
+	_, err := t.transferQueueTaskExecutorBase.pushActivity(
 		ctx,
 		task.(*tasks.ActivityTask),
 		timeout,
 		pushActivityInfo.versionDirective,
 	)
+	return err
 }
 
 func (t *transferQueueStandbyTaskExecutor) pushWorkflowTask(
@@ -556,13 +557,14 @@ func (t *transferQueueStandbyTaskExecutor) pushWorkflowTask(
 	}
 
 	pushwtInfo := postActionInfo.(*workflowTaskPostActionInfo)
-	return t.transferQueueTaskExecutorBase.pushWorkflowTask(
+	_, err := t.transferQueueTaskExecutorBase.pushWorkflowTask(
 		ctx,
 		task.(*tasks.WorkflowTask),
 		pushwtInfo.taskqueue,
 		pushwtInfo.workflowTaskScheduleToStartTimeout,
 		pushwtInfo.versionDirective,
 	)
+	return err
 }
 
 func (t *transferQueueStandbyTaskExecutor) startChildExecutionResendPostAction(
