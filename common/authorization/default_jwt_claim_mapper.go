@@ -26,6 +26,7 @@ package authorization
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -69,6 +70,8 @@ func (a *defaultJWTClaimMapper) GetClaims(authInfo *AuthInfo) (*Claims, error) {
 
 	claims := Claims{}
 
+	fmt.Printf("bill-claims-received-1 %+v \n", authInfo)
+
 	if authInfo.AuthToken == "" {
 		return &claims, nil
 	}
@@ -82,21 +85,108 @@ func (a *defaultJWTClaimMapper) GetClaims(authInfo *AuthInfo) (*Claims, error) {
 	}
 	jwtClaims, err := parseJWTWithAudience(parts[1], a.keyProvider, authInfo.Audience)
 	if err != nil {
+		fmt.Printf("bill-claims-parseJWT-err %+v \n", err)
+
 		return nil, err
 	}
+
+	fmt.Printf("bill-claims-parsedJWT %+v \n", jwtClaims)
+
 	subject, ok := jwtClaims[headerSubject].(string)
 	if !ok {
+		fmt.Printf("bill-claims-parse-Subject-err %+v \n", jwtClaims)
 		return nil, serviceerror.NewPermissionDenied("unexpected value type of \"sub\" claim", "")
 	}
 	claims.Subject = subject
-	permissions, ok := jwtClaims[a.permissionsClaimName].([]interface{})
+
+	// permissions, ok := jwtClaims[a.permissionsClaimName].([]interface{})
+	// if ok {
+	// 	err := a.extractPermissions(permissions, &claims)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// }
+
+	permissions, ok := jwtClaims[a.permissionsClaimName].(map[string]interface{})
+	if !ok {
+		// extract temporal system level permissions
+		fmt.Printf("bill-claims-parse-permissions-err %+v \n", jwtClaims)
+
+		return nil, serviceerror.NewPermissionDenied("unable to parse permissions", "")
+	}
+
+	err = a.extractSystemPermissions(permissions["temporal-system"], &claims)
+	if err != nil {
+		fmt.Printf("bill-claims-parse-System-err %+v \n", err)
+		return nil, err
+	}
+
+	// extract role for namespace permissions
+	namespacePermissions, ok := permissions["namespaces"].(map[string]interface{})
 	if ok {
-		err := a.extractPermissions(permissions, &claims)
+		err := a.extractNamespacePermissions(namespacePermissions, &claims)
 		if err != nil {
+			fmt.Printf("bill-claims-parse-namespaces-err %+v \n", err)
 			return nil, err
 		}
 	}
+
+	// extract role for namespace task-queue permissions
+	namespaceTaskQueuePermissions, ok := permissions["namespace_taskqueue"].(NamespaceTaskQueuePermissionsRequest)
+	if ok {
+		err := a.extractNamespaceTaskQueuePermissions(namespaceTaskQueuePermissions, &claims)
+		if err != nil {
+			fmt.Printf("bill-claims-parse-namespace_taskqueue-err %+v \n", err)
+			return nil, err
+		}
+	}
+
 	return &claims, nil
+}
+
+func (a *defaultJWTClaimMapper) extractSystemPermissions(systemPermission interface{}, claims *Claims) error {
+	p, ok := systemPermission.(string)
+	if !ok {
+		a.logger.Warn(fmt.Sprintf("ignoring permission that is not a string: %v", systemPermission))
+		return errors.New("system permissions is not string")
+	}
+
+	claims.System = permissionToRole(p)
+
+	return nil
+}
+
+func (a *defaultJWTClaimMapper) extractNamespacePermissions(namespacePermissions map[string]interface{}, claims *Claims) error {
+	namespacesRole := make(map[string]Role)
+	for namespace, permission := range namespacePermissions {
+		p, ok := permission.(string)
+		if !ok {
+			a.logger.Warn(fmt.Sprintf("ignoring permission that is not a string: %v", permission))
+			continue
+		}
+		namespacesRole[namespace] = permissionToRole(p)
+	}
+
+	claims.Namespaces = namespacesRole
+
+	return nil
+}
+
+func (a *defaultJWTClaimMapper) extractNamespaceTaskQueuePermissions(NamespacePermissions NamespaceTaskQueuePermissionsRequest, claims *Claims) error {
+	namespaceTaskQueueRoles := make(NamespaceTaskQueueRoles)
+	for namespace, taskQueues := range NamespacePermissions {
+		if _, ok := namespaceTaskQueueRoles[namespace]; !ok {
+			namespaceTaskQueueRoles[namespace] = make(map[string]Role)
+		}
+
+		for permission, taskQueue := range taskQueues {
+			namespaceTaskQueueRoles[namespace][taskQueue] = permissionToRole(permission)
+		}
+	}
+
+	claims.Extensions = namespaceTaskQueueRoles
+
+	return nil
 }
 
 func (a *defaultJWTClaimMapper) extractPermissions(permissions []interface{}, claims *Claims) error {

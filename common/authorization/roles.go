@@ -37,6 +37,9 @@ const (
 	RoleUndefined = Role(0)
 )
 
+type NamespaceTaskQueuePermissionsRequest map[string]map[string]string
+type NamespaceTaskQueueRoles map[string]map[string]Role
+
 // @@@SNIPEND
 
 // Checks if the provided role bitmask represents a valid combination of authz

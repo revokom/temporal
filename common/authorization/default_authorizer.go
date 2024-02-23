@@ -26,7 +26,9 @@ package authorization
 
 import (
 	"context"
+	"fmt"
 
+	v1 "go.temporal.io/api/workflowservice/v1"
 	"go.temporal.io/server/common/api"
 )
 
@@ -58,6 +60,7 @@ var resultDeny = Result{Decision: DecisionDeny}
 func (a *defaultAuthorizer) Authorize(_ context.Context, claims *Claims, target *CallTarget) (Result, error) {
 	// APIs that are essentially read-only health checks with no sensitive information are
 	// always allowed
+
 	if IsHealthCheckAPI(target.APIName) {
 		return resultAllow, nil
 	}
@@ -74,15 +77,74 @@ func (a *defaultAuthorizer) Authorize(_ context.Context, claims *Claims, target 
 	case api.ScopeNamespace:
 		// Note: system-level claims apply across all namespaces.
 		// Note: if claims.Namespace is nil or target.Namespace is not found, the lookup will return zero.
+		// hasRole = claims.System | claims.Namespaces[target.Namespace]
+
+		// check for namespace roles from CallTarget request interface{}
+		// if claims.Extensions == nil {
+		// 	return resultDeny, nil
+		// }
+
+		// extract namespace roles from extensions
+		// namespaceRoles, ok := claims.Extensions.(NamespaceTaskQueueRoles)
+		// if !ok {
+		// 	return resultDeny, nil
+		// }
+
 		hasRole = claims.System | claims.Namespaces[target.Namespace]
+
+		// if the call target api is part of task queue operation then check task queue role as well
+		// if taskQueueRoles, ok := namespaceRoles[target.Namespace]; ok {
+		// 	hasRole := claims.Namespaces[target.Namespace]
+
+		// 	// check namespace role first
+		// 	if hasRole >= getRequiredRole(metadata.Access) {
+		// 		// then check task queue role
+		// 		taskQueue := getTaskQueueFromRequest(target.Request)
+		// 		hasTaskQueueRole := taskQueueRoles[taskQueue]
+
+		// 		taskQueueMetaData := api.GetTaskQueueMetadata(taskQueue)
+
+		// 		if hasTaskQueueRole >= getRequiredRole(taskQueueMetaData.Access) {
+		// 			return resultAllow, nil
+		// 		}
+		// 	}
+		// } else {
+		// 	// then check task queue role
+		// 	hasRole := claims.Namespaces[target.Namespace]
+
+		// 	if hasRole >= getRequiredRole(metadata.Access) {
+		// 		return resultAllow, nil
+		// 	}
+		// }
 	default:
 		return resultDeny, nil
 	}
 
 	if hasRole >= getRequiredRole(metadata.Access) {
+		fmt.Printf("bill-authorizer-failed-for-claims %+v \n & target %+v \n & namespace %+v \n", claims, target.APIName, target.Namespace)
 		return resultAllow, nil
 	}
+
 	return resultDeny, nil
+}
+
+func getTaskQueueFromRequest(request interface{}) string {
+	switch req := request.(type) {
+	case v1.PollWorkflowTaskQueueRequest:
+		return req.TaskQueue.Name
+	case v1.PollActivityTaskQueueRequest:
+		return req.TaskQueue.Name
+	case v1.DescribeTaskQueueRequest:
+		return req.TaskQueue.Name
+	case v1.StartWorkflowExecutionRequest:
+		return req.TaskQueue.Name
+	case v1.SignalWithStartWorkflowExecutionRequest:
+		return req.TaskQueue.Name
+	case v1.ListTaskQueuePartitionsRequest:
+		return req.TaskQueue.Name
+	default:
+		return ""
+	}
 }
 
 // Convert from api.Access to Role

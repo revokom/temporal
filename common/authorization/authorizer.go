@@ -85,7 +85,7 @@ func GetAuthorizerFromConfig(config *config.Authorization) (Authorizer, error) {
 	switch strings.ToLower(config.Authorizer) {
 	case "":
 		return NewNoopAuthorizer(), nil
-	case "default":
+	case "ccti":
 		return NewDefaultAuthorizer(), nil
 	}
 	return nil, fmt.Errorf("unknown authorizer: %s", config.Authorizer)

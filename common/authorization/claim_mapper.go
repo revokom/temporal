@@ -88,7 +88,7 @@ func GetClaimMapperFromConfig(config *config.Authorization, logger log.Logger) (
 	switch strings.ToLower(config.ClaimMapper) {
 	case "":
 		return NewNoopClaimMapper(), nil
-	case "default":
+	case "ccti":
 		return NewDefaultJWTClaimMapper(NewDefaultTokenKeyProvider(config, logger), config, logger), nil
 	}
 	return nil, fmt.Errorf("unknown claim mapper: %s", config.ClaimMapper)
